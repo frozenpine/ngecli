@@ -15,8 +15,11 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+
+	"github.com/frozenpine/ngerest"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -26,13 +29,19 @@ import (
 const (
 	defaultHost    = "http://trade"
 	defaultBaseURI = "/api/v1"
+
+	defaultSymbol = "XBTUSD"
 )
 
 var cfgFile string
 
 var (
+	client            *ngerest.APIClient
+	rootCtx, stopFunc = context.WithCancel(context.Background())
+
 	host, baseURI      string
 	identity, password string
+	symbol             string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -77,6 +86,8 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&identity, "id", "u", "", "Identity used for login.")
 	rootCmd.PersistentFlags().StringVarP(&password, "pass", "p", "", "Password used for login.")
+
+	rootCmd.PersistentFlags().StringVar(&symbol, "symbol", defaultSymbol, "Symbol name.")
 }
 
 // initConfig reads in config file and ENV variables if set.

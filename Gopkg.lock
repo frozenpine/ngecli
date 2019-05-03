@@ -2,12 +2,44 @@
 
 
 [[projects]]
+  branch = "master"
+  digest = "1:2b23c176460b7b078aeffc44d97515e13d7aa5857c1c2768b3e3defc0397626e"
+  name = "github.com/antihax/optional"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ca021399b1a6796ecb758292c6311ce0b28857fc"
+
+[[projects]]
+  branch = "master"
+  digest = "1:417e6abb34ed855f8ea658b604f3415972d28908e7180362db49af7f96a01178"
+  name = "github.com/frozenpine/ngerest"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "e27bc7c542e257cf427db18508abd7a6bb42c89c"
+
+[[projects]]
+  branch = "master"
+  digest = "1:02e57c17173e802fa29f951a558773954c67d3e869346997712299605f0ba3d5"
+  name = "github.com/frozenpine/pkcs8"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a8374dc8920dc8c96609f90a0b5467ae706427aa"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   pruneopts = "UT"
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
   version = "v1.4.7"
+
+[[projects]]
+  digest = "1:318f1c959a8a740366fce4b1e1eb2fd914036b4af58fbd0a003349b305f118ad"
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  pruneopts = "UT"
+  revision = "b5d812f8a3706043e23a9cd5babf2e5423744d30"
+  version = "v1.3.1"
 
 [[projects]]
   digest = "1:c0d19ab64b32ce9fe5cf4ddceba78d5bc9807f0016db6b1183599da3dcc24d10"
@@ -121,6 +153,28 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:f8b491a7c25030a895a0e579742d07136e6958e77ef2d46e769db8eec4e58fcd"
+  name = "golang.org/x/net"
+  packages = [
+    "context",
+    "context/ctxhttp",
+  ]
+  pruneopts = "UT"
+  revision = "7f726cade0ab7c929c16ce0b5b25bd201e25f39f"
+
+[[projects]]
+  branch = "master"
+  digest = "1:9927d6aceb89d188e21485f42a7a254e67e6fdcf4260aba375fe18e3c300dfb4"
+  name = "golang.org/x/oauth2"
+  packages = [
+    ".",
+    "internal",
+  ]
+  pruneopts = "UT"
+  revision = "9f3314589c9a9136388751d9adae6b0ed400978a"
+
+[[projects]]
+  branch = "master"
   digest = "1:3e01c69b34e7c3fa4b7a118ca95a6beaecea00f7f4fb701545d83eacd3badb3c"
   name = "golang.org/x/sys"
   packages = ["unix"]
@@ -143,6 +197,22 @@
   version = "v0.3.0"
 
 [[projects]]
+  digest = "1:6eb6e3b6d9fffb62958cf7f7d88dbbe1dd6839436b0802e194c590667a40412a"
+  name = "google.golang.org/appengine"
+  packages = [
+    "internal",
+    "internal/base",
+    "internal/datastore",
+    "internal/log",
+    "internal/remote_api",
+    "internal/urlfetch",
+    "urlfetch",
+  ]
+  pruneopts = "UT"
+  revision = "54a98f90d1c46b7731eb8fb305d2a321c30ef610"
+  version = "v1.5.0"
+
+[[projects]]
   digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -154,6 +224,8 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/antihax/optional",
+    "github.com/frozenpine/ngerest",
     "github.com/mitchellh/go-homedir",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
