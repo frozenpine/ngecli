@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
+	"strconv"
 
 	"github.com/frozenpine/ngerest"
 
@@ -27,7 +29,9 @@ import (
 )
 
 const (
-	defaultHost    = "http://trade"
+	defaultScheme  = "https"
+	defaultHost    = "trade"
+	defaultPort    = 80
 	defaultBaseURI = "/api/v1"
 
 	defaultSymbol = "XBTUSD"
@@ -39,7 +43,6 @@ var (
 	client            *ngerest.APIClient
 	rootCtx, stopFunc = context.WithCancel(context.Background())
 
-	host, baseURI      string
 	identity, password string
 	symbol             string
 )
@@ -57,7 +60,9 @@ Supported:
 	5. all websocket interface`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("main run.")
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -81,8 +86,21 @@ func init() {
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	rootCmd.PersistentFlags().StringVarP(&host, "host", "H", defaultHost, "Host address for NGE.")
-	rootCmd.PersistentFlags().StringVarP(&baseURI, "uri", "R", defaultBaseURI, "Base URI for NGE.")
+	viper.SetDefault("scheme", defaultScheme)
+	rootCmd.PersistentFlags().String("scheme", defaultScheme, "Host scheme for NGE.")
+	viper.BindPFlag("scheme", rootCmd.PersistentFlags().Lookup("scheme"))
+
+	viper.SetDefault("host", defaultHost)
+	rootCmd.PersistentFlags().StringP("host", "H", defaultHost, "Host address for NGE.")
+	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
+
+	viper.SetDefault("port", defaultPort)
+	rootCmd.PersistentFlags().IntP("port", "P", defaultPort, "Host port for NGE.")
+	viper.BindPFlag("port", rootCmd.PersistentFlags().Lookup("port"))
+
+	viper.SetDefault("base-uri", defaultBaseURI)
+	rootCmd.PersistentFlags().String("uri", defaultBaseURI, "Base URI for NGE.")
+	viper.BindPFlag("base-uri", rootCmd.PersistentFlags().Lookup("uri"))
 
 	rootCmd.PersistentFlags().StringVarP(&identity, "id", "u", "", "Identity used for login.")
 	rootCmd.PersistentFlags().StringVarP(&password, "pass", "p", "", "Password used for login.")
@@ -92,26 +110,78 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	// Find home directory.
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
+		// Search config in home directory with name ".ngecli" (without extension).
+		viper.AddConfigPath(path.Join(home, ".ngecli"))
+		viper.AddConfigPath(".")
+		viper.SetConfigName("config")
+	}
+
+	viper.SetEnvPrefix("ngecli")
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+READ_CONFIG:
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	} else {
+		fmt.Println("No config file found, creating one...")
+
+		confDir := path.Join(home, ".ngecli")
+		if _, err := os.Stat(confDir); os.IsNotExist(err) {
+			os.Mkdir(confDir, os.ModePerm)
+		}
+
+		err = viper.WriteConfigAs(path.Join(confDir, "config.yaml"))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".ngecli" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".ngecli")
+		goto READ_CONFIG
+	}
+}
+
+func initClient() {
+	cfg := ngerest.NewConfiguration()
+	client = ngerest.NewAPIClient(cfg)
+
+	basePath := getBasePath()
+
+	client.ChangeBasePath(basePath)
+
+	fmt.Println("Change host to:", basePath)
+}
+
+func getBasePath() string {
+	baseURI := viper.GetString("base-uri")
+
+	return getBaseURL() + baseURI
+}
+
+func getBaseHost() string {
+	port := viper.GetInt("port")
+	host := viper.GetString("host")
+
+	if port != defaultPort {
+		return host + ":" + strconv.Itoa(port)
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
+	return host
+}
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
+func getBaseURL() string {
+	scheme := viper.GetString("scheme")
+
+	return scheme + "://" + getBaseHost()
 }

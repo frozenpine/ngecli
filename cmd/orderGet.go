@@ -93,6 +93,10 @@ to quickly create a Cobra application.`,
 				channels.ErrChan <- fmt.Errorf("Get order failed: %s", err.Error())
 			}
 		}
+
+		for _, order := range hisOrders {
+			channels.OrderResultChan <- &order
+		}
 	},
 }
 

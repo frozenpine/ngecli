@@ -15,38 +15,160 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/frozenpine/ngecli/models"
+	"github.com/frozenpine/pkcs8"
+
+	homedir "github.com/mitchellh/go-homedir"
+
+	"github.com/spf13/viper"
 
 	"github.com/spf13/cobra"
 )
+
+var (
+	auths *viper.Viper
+)
+
+// Login login with identity & password to get auth Context
+func Login(ctx context.Context, identity, password string) context.Context {
+	idMap := models.NewIdentityMap()
+	login := make(map[string]string)
+
+	if err := idMap.CheckIdentity(identity, login); err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	pubKey, _, err := client.KeyExchange.GetPublicKey(ctx)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	login["password"] = pubKey.Encrypt(password)
+
+	auth, _, err := client.User.UserLogin(ctx, login)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	return auth
+}
+
+// GetUserDefaultKey get user's default sys api key
+func GetUserDefaultKey(auth context.Context) *models.APIKey {
+	priKey := pkcs8.GeneratePriveKey(2048)
+
+	userDefault, _, err := client.User.UserGetDefaultAPIKey(auth, priKey)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	key := models.APIKey{
+		Key:    userDefault.APIKey,
+		Secret: userDefault.APISecret,
+	}
+
+	return &key
+}
+
+func parseHost(hostString string) bool {
+	hosts := strings.Split(hostString, ":")
+
+	host := hosts[0]
+	if host != viper.GetString("host") {
+		viper.Set("host", host)
+	}
+
+	if len(hosts) > 1 {
+		port, err := strconv.Atoi(hosts[1])
+		if err != nil {
+			fmt.Println("Invalid host:", hostString)
+			return false
+		}
+
+		if port != viper.GetInt("port") {
+			viper.Set("port", port)
+		}
+	}
+
+	initClient()
+
+	return true
+}
+
+func loginAndSave(host string) {
+	identity := ReadLine("Identity: ", nil)
+	password := ReadLine("Password: ", nil)
+
+	if auth := Login(rootCtx, identity, password); auth == nil {
+		fmt.Println("Login failed.")
+		os.Exit(1)
+	}
+
+	auths.Set(host+".identity", identity)
+	auths.Set(host+".password", password)
+}
 
 // loginCmd represents the login command
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Login NGE trade engin with user identity.",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Long:  `Login NGE trade engin and save identity info to config.yaml`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("login called")
+		if len(args) > 0 {
+			for _, host := range args {
+				if !parseHost(host) {
+					continue
+				}
+				
+				loginAndSave(host)
+			}
+		} else {
+			initClient()
+
+			loginAndSave(getBaseHost())
+		}
+
+		err := auths.WriteConfig()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(loginCmd)
 
-	// Here you will define your flags and configuration settings.
+	initAuthConfig()
+}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// loginCmd.PersistentFlags().String("foo", "", "A help for foo")
+func initAuthConfig() {
+	// Find home directory.
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// loginCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	if auths == nil {
+		auths = viper.New()
+	}
 
-	// loginCmd.Flags().StringP("identity", "i", )
+	confDIR := filepath.Join(home, ".ngecli")
+	if _, err := os.Stat(confDIR); os.IsNotExist(err) {
+		os.Mkdir(confDIR, os.ModePerm)
+	}
+
+	auths.SetConfigFile(filepath.Join(confDIR, "auths.yaml"))
 }

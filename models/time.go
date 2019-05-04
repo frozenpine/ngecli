@@ -40,6 +40,7 @@ func genEmptyTime() FlagTime {
 // EmptyTime 0001-01-01 00:00:00
 var EmptyTime = genEmptyTime()
 
+// JavaTime java timestamp format
 type JavaTime int64
 
 // MarshalCSV marshal java time to csv string.

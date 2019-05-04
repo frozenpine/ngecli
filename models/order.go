@@ -22,13 +22,13 @@ const (
 )
 
 // String order side string
-func (s OrderSide) String() string {
-	return string(s)
+func (s *OrderSide) String() string {
+	return string(*s)
 }
 
 // Value order side value
-func (s OrderSide) Value() int64 {
-	switch s {
+func (s *OrderSide) Value() int64 {
+	switch *s {
 	case Buy:
 		return 1
 	case Sell:
@@ -39,8 +39,8 @@ func (s OrderSide) Value() int64 {
 }
 
 // Opposite get opposite order side
-func (s OrderSide) Opposite() OrderSide {
-	switch s {
+func (s *OrderSide) Opposite() OrderSide {
+	switch *s {
 	case Buy:
 		return Sell
 	case Sell:
@@ -93,36 +93,36 @@ func (s *OrderSide) Set(value string) error {
 // Order order table
 type Order struct {
 	OrderID               string    `csv:"orderID" json:"orderID"`
-	ClOrdID               string    `csv:"clOrdID,omitempty"`
-	ClOrdLinkID           string    `csv:"clOrdLinkID,omitempty"`
-	Account               float32   `csv:"account,omitempty"`
-	Symbol                string    `csv:"symbol,omitempty"`
-	Side                  OrderSide `csv:"side,omitempty"`
-	SimpleOrderQty        float64   `csv:"simpleOrderQty,omitempty"`
-	OrderQty              float32   `csv:"orderQty,omitempty"`
-	Price                 float64   `csv:"price,omitempty"`
-	DisplayQty            float32   `csv:"displayQty,omitempty"`
-	StopPx                float64   `csv:"stopPx,omitempty"`
-	PegOffsetValue        float64   `csv:"pegOffsetValue,omitempty"`
-	PegPriceType          string    `csv:"pegPriceType,omitempty"`
-	Currency              string    `csv:"currency,omitempty"`
-	SettlCurrency         string    `csv:"settlCurrency,omitempty"`
-	OrdType               string    `csv:"ordType,omitempty"`
-	TimeInForce           string    `csv:"timeInForce,omitempty"`
-	ExecInst              string    `csv:"execInst,omitempty"`
-	ContingencyType       string    `csv:"contingencyType,omitempty"`
-	ExDestination         string    `csv:"exDestination,omitempty"`
-	OrdStatus             string    `csv:"ordStatus,omitempty"`
-	Triggered             string    `csv:"triggered,omitempty"`
-	WorkingIndicator      bool      `csv:"workingIndicator,omitempty"`
-	OrdRejReason          string    `csv:"ordRejReason,omitempty"`
-	SimpleLeavesQty       float64   `csv:"simpleLeavesQty,omitempty"`
-	LeavesQty             float32   `csv:"leavesQty,omitempty"`
-	SimpleCumQty          float64   `csv:"simpleCumQty,omitempty"`
-	CumQty                float32   `csv:"cumQty,omitempty"`
-	AvgPx                 float64   `csv:"avgPx,omitempty"`
-	MultiLegReportingType string    `csv:"multiLegReportingType,omitempty"`
-	Text                  string    `csv:"text,omitempty"`
-	TransactTime          JavaTime  `csv:"transactTime,omitempty"`
-	Timestamp             JavaTime  `csv:"timestamp,omitempty"`
+	ClOrdID               string    `csv:"clOrdID,omitempty" json:"clOrdID,omitempty"`
+	ClOrdLinkID           string    `csv:"clOrdLinkID,omitempty" json:"clOrdLinkID,omitempty"`
+	Account               float32   `csv:"account,omitempty" json:"account,omitempty"`
+	Symbol                string    `csv:"symbol,omitempty" json:"symbol,omitempty"`
+	Side                  OrderSide `csv:"side,omitempty" json:"side,omitempty"`
+	SimpleOrderQty        float64   `csv:"simpleOrderQty,omitempty" json:"simpleOrderQty,omitempty"`
+	OrderQty              float32   `csv:"orderQty,omitempty" json:"orderQty,omitempty"`
+	Price                 float64   `csv:"price,omitempty" json:"price,omitempty"`
+	DisplayQty            float32   `csv:"displayQty,omitempty" json:"displayQty,omitempty"`
+	StopPx                float64   `csv:"stopPx,omitempty" json:"stopPx,omitempty"`
+	PegOffsetValue        float64   `csv:"pegOffsetValue,omitempty" json:"pegOffsetValue,omitempty"`
+	PegPriceType          string    `csv:"pegPriceType,omitempty" json:"pegPriceType,omitempty"`
+	Currency              string    `csv:"currency,omitempty" json:"currency,omitempty"`
+	SettlCurrency         string    `csv:"settlCurrency,omitempty" json:"settlCurrency,omitempty"`
+	OrdType               string    `csv:"ordType,omitempty" json:"ordType,omitempty"`
+	TimeInForce           string    `csv:"timeInForce,omitempty" json:"timeInForce,omitempty"`
+	ExecInst              string    `csv:"execInst,omitempty" json:"execInst,omitempty"`
+	ContingencyType       string    `csv:"contingencyType,omitempty" json:"contingencyType,omitempty"`
+	ExDestination         string    `csv:"exDestination,omitempty" json:"exDestination,omitempty"`
+	OrdStatus             string    `csv:"ordStatus,omitempty" json:"ordStatus,omitempty"`
+	Triggered             string    `csv:"triggered,omitempty" json:"triggered,omitempty"`
+	WorkingIndicator      bool      `csv:"workingIndicator,omitempty" json:"workingIndicator,omitempty"`
+	OrdRejReason          string    `csv:"ordRejReason,omitempty" json:"ordRejReason,omitempty"`
+	SimpleLeavesQty       float64   `csv:"simpleLeavesQty,omitempty" json:"simpleLeavesQty,omitempty"`
+	LeavesQty             float32   `csv:"leavesQty,omitempty" json:"leavesQty,omitempty"`
+	SimpleCumQty          float64   `csv:"simpleCumQty,omitempty" json:"simpleCumQty,omitempty"`
+	CumQty                float32   `csv:"cumQty,omitempty" json:"cumQty,omitempty"`
+	AvgPx                 float64   `csv:"avgPx,omitempty" json:"avgPx,omitempty"`
+	MultiLegReportingType string    `csv:"multiLegReportingType,omitempty" json:"multiLegReportingType,omitempty"`
+	Text                  string    `csv:"text,omitempty" json:"text,omitempty"`
+	TransactTime          JavaTime  `csv:"transactTime,omitempty" json:"transactTime,omitempty"`
+	Timestamp             JavaTime  `csv:"timestamp,omitempty" json:"timestamp,omitempty"`
 }
