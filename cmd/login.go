@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/frozenpine/ngerest"
 
@@ -40,7 +42,29 @@ type APIAuthCache struct {
 	apiKeyCache  map[string]*models.APIKey
 	apiAuthCache map[string]context.Context
 	authList     []*models.Authentication
-	nextKeyIDX   int
+	retriveOnece sync.Once
+	keyIDX       uint32
+}
+
+func (auth *APIAuthCache) nextIDX() int {
+	auth.retriveOnece.Do(func() {
+		if len(auth.authList) >= 1 {
+			return
+		}
+
+		err := auth.retriveAuth()
+
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	})
+
+	idCount := atomic.AddUint32(&auth.keyIDX, 1)
+
+	idx := int(idCount) % len(auth.authList)
+
+	return idx - 1
 }
 
 // SetConfigFile set auth config file path
@@ -94,23 +118,7 @@ func (auth *APIAuthCache) NextAuth(parent context.Context) context.Context {
 		parent = rootCtx
 	}
 
-	defer func() {
-		auth.nextKeyIDX++
-
-		if auth.nextKeyIDX >= len(auth.authList) {
-			auth.nextKeyIDX = 0
-		}
-	}()
-
-	if len(auth.authList) < 1 {
-		err := auth.retriveAuth()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	}
-
-	authInfo := auth.authList[auth.nextKeyIDX]
+	authInfo := auth.authList[auth.nextIDX()]
 
 	var ctx context.Context
 
@@ -224,16 +232,15 @@ func parseArgHost(hostString string) bool {
 }
 
 func loginAndSave(host string) {
-	identity := ReadLine("Identity: ", nil)
-	password := models.NewPassword()
+	identity = ReadLine("Identity: ", nil)
 	password.Set(ReadLine("Password: ", nil))
 
-	if auth := Login(rootCtx, identity, password); auth == nil {
+	if auth := Login(rootCtx, identity, &password); auth == nil {
 		fmt.Println("Login failed.")
 		os.Exit(1)
 	}
 
-	auths.SaveLoginInfo(host, identity, password)
+	auths.SaveLoginInfo(host, identity, &password)
 }
 
 // loginCmd represents the login command
