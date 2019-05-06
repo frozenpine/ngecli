@@ -2,13 +2,7 @@ package models
 
 import (
 	"bytes"
-	"errors"
 	"strings"
-)
-
-var (
-	// ErrSide invalid side
-	ErrSide = errors.New("side is either \"Buy\" or \"Sell\"")
 )
 
 // OrderSide order side
@@ -88,6 +82,11 @@ func (s *OrderSide) Set(value string) error {
 	default:
 		return ErrSide
 	}
+}
+
+// Type get order side type
+func (s *OrderSide) Type() string {
+	return s.String()
 }
 
 // Order order table

@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/frozenpine/ngerest"
+
 	"github.com/frozenpine/ngecli/models"
 	"github.com/frozenpine/pkcs8"
 
@@ -32,12 +34,122 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// APIAuthCache api auth cache
+type APIAuthCache struct {
+	savedAuths   *viper.Viper
+	apiKeyCache  map[string]*models.APIKey
+	apiAuthCache map[string]context.Context
+	authList     []*models.Authentication
+	nextKeyIDX   int
+}
+
+// SetConfigFile set auth config file path
+func (auth *APIAuthCache) SetConfigFile(path string) {
+	auths.savedAuths.SetConfigFile(path)
+}
+
+// WriteConfig write login info to auth config file
+func (auth *APIAuthCache) WriteConfig() error {
+	return auths.savedAuths.WriteConfig()
+}
+
+// SaveLoginInfo save host's login info in viper config
+func (auth *APIAuthCache) SaveLoginInfo(host, identity string, password *models.Password) {
+	auths.savedAuths.Set(host+".identity", identity)
+	auths.savedAuths.Set(host+".password", password.String())
+}
+
+func (auth *APIAuthCache) retriveAuth() error {
+	baseHost := getBaseHost()
+
+	if identity == "" || password.IsSet() {
+		if !auth.savedAuths.IsSet(baseHost) {
+			return models.ErrAuthMissing
+		}
+
+		login := auth.savedAuths.Sub(baseHost)
+
+		identity = login.GetString("identity")
+
+		password.ShadowSet(login.GetString("password"))
+	}
+
+	if key := GetUserDefaultKey(rootCtx); key != nil {
+		authInfo := models.Authentication{
+			Identity: identity,
+			Password: password,
+			APIKey:   *key,
+		}
+		auth.authList = append(auth.authList, &authInfo)
+	} else {
+		return fmt.Errorf("retrive %s's api key from %s failed", identity, baseHost)
+	}
+
+	return nil
+}
+
+// NextAuth get next auth context
+func (auth *APIAuthCache) NextAuth(parent context.Context) context.Context {
+	if parent == nil {
+		parent = rootCtx
+	}
+
+	defer func() {
+		auth.nextKeyIDX++
+
+		if auth.nextKeyIDX >= len(auth.authList) {
+			auth.nextKeyIDX = 0
+		}
+	}()
+
+	if len(auth.authList) < 1 {
+		err := auth.retriveAuth()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
+
+	authInfo := auth.authList[auth.nextKeyIDX]
+
+	var ctx context.Context
+
+	if ctx, exist := auth.apiAuthCache[authInfo.Identity]; !exist {
+		ctx = context.WithValue(
+			parent, ngerest.ContextAPIKey, ngerest.APIKey{
+				Key:    authInfo.Key,
+				Secret: authInfo.Secret,
+			})
+
+		auth.apiAuthCache[authInfo.Identity] = ctx
+	}
+
+	if authInfo.Identity == "" {
+		return ctx
+	}
+
+	if _, exist := auth.apiKeyCache[authInfo.Identity]; !exist {
+		auth.apiKeyCache[authInfo.Identity] = &authInfo.APIKey
+	}
+
+	return ctx
+}
+
+// NewAPIAuthCache create new api auth cache
+func NewAPIAuthCache() *APIAuthCache {
+	cache := APIAuthCache{
+		savedAuths: viper.New(),
+	}
+
+	return &cache
+}
+
 var (
-	auths *viper.Viper
+	auths *APIAuthCache
 )
 
 // Login login with identity & password to get auth Context
-func Login(ctx context.Context, identity, password string) context.Context {
+func Login(ctx context.Context, identity string, password *models.Password) context.Context {
 	idMap := models.NewIdentityMap()
 	login := make(map[string]string)
 
@@ -52,7 +164,7 @@ func Login(ctx context.Context, identity, password string) context.Context {
 		return nil
 	}
 
-	login["password"] = pubKey.Encrypt(password)
+	login["password"] = pubKey.Encrypt(password.Show())
 
 	auth, _, err := client.User.UserLogin(ctx, login)
 	if err != nil {
@@ -64,10 +176,15 @@ func Login(ctx context.Context, identity, password string) context.Context {
 }
 
 // GetUserDefaultKey get user's default sys api key
-func GetUserDefaultKey(auth context.Context) *models.APIKey {
+func GetUserDefaultKey(loginAuth context.Context) *models.APIKey {
+	if _, ok := loginAuth.Value(ngerest.ContextQuantToken).(ngerest.QuantToken); !ok {
+		fmt.Println("invalid login auth")
+		return nil
+	}
+
 	priKey := pkcs8.GeneratePriveKey(2048)
 
-	userDefault, _, err := client.User.UserGetDefaultAPIKey(auth, priKey)
+	userDefault, _, err := client.User.UserGetDefaultAPIKey(loginAuth, priKey)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -81,7 +198,7 @@ func GetUserDefaultKey(auth context.Context) *models.APIKey {
 	return &key
 }
 
-func parseHost(hostString string) bool {
+func parseArgHost(hostString string) bool {
 	hosts := strings.Split(hostString, ":")
 
 	host := hosts[0]
@@ -108,29 +225,29 @@ func parseHost(hostString string) bool {
 
 func loginAndSave(host string) {
 	identity := ReadLine("Identity: ", nil)
-	password := ReadLine("Password: ", nil)
+	password := models.NewPassword()
+	password.Set(ReadLine("Password: ", nil))
 
 	if auth := Login(rootCtx, identity, password); auth == nil {
 		fmt.Println("Login failed.")
 		os.Exit(1)
 	}
 
-	auths.Set(host+".identity", identity)
-	auths.Set(host+".password", password)
+	auths.SaveLoginInfo(host, identity, password)
 }
 
 // loginCmd represents the login command
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Login NGE trade engin with user identity.",
-	Long:  `Login NGE trade engin and save identity info to config.yaml`,
+	Short: "Login NGE trade engine with user identity.",
+	Long:  `Login NGE trade engine and save identity info to auths.yaml`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			for _, host := range args {
-				if !parseHost(host) {
+				if !parseArgHost(host) {
 					continue
 				}
-				
+
 				loginAndSave(host)
 			}
 		} else {
@@ -162,7 +279,7 @@ func initAuthConfig() {
 	}
 
 	if auths == nil {
-		auths = viper.New()
+		auths = NewAPIAuthCache()
 	}
 
 	confDIR := filepath.Join(home, ".ngecli")

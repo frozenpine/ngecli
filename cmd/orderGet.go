@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const defaultGetOrderCount = 200
+
 type orderGetArgs struct {
 	filter  string
 	columns string
@@ -103,15 +105,6 @@ to quickly create a Cobra application.`,
 func init() {
 	orderCmd.AddCommand(orderGetCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// orderGetCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// orderGetCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	orderGetCmd.Flags().StringVar(
 		&orderGetVariables.filter, "filter", "", "Filter string applied in query result")
 	orderGetCmd.Flags().StringVar(
@@ -123,5 +116,5 @@ func init() {
 	orderGetCmd.Flags().VarP(&orderGetVariables.start, "start", "s", "Start")
 	orderGetCmd.Flags().VarP(&orderGetVariables.end, "end", "e", "End")
 
-	orderGetCmd.Flags().IntVarP(&orderGetVariables.count, "count", "c", 200, "Order count in query result.")
+	orderGetCmd.Flags().IntVarP(&orderGetVariables.count, "count", "c", defaultGetOrderCount, "Order count in query result.")
 }

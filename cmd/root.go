@@ -21,6 +21,8 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/frozenpine/ngecli/models"
+
 	"github.com/frozenpine/ngerest"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -43,8 +45,10 @@ var (
 	client            *ngerest.APIClient
 	rootCtx, stopFunc = context.WithCancel(context.Background())
 
-	identity, password string
-	symbol             string
+	identity string
+	password models.Password
+	authFile string
+	symbol   string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -103,7 +107,9 @@ func init() {
 	viper.BindPFlag("base-uri", rootCmd.PersistentFlags().Lookup("uri"))
 
 	rootCmd.PersistentFlags().StringVarP(&identity, "id", "u", "", "Identity used for login.")
-	rootCmd.PersistentFlags().StringVarP(&password, "pass", "p", "", "Password used for login.")
+	rootCmd.PersistentFlags().VarP(&password, "pass", "p", "Password used for login.")
+
+	rootCmd.PersistentFlags().StringVar(&authFile, "auth", "", "Auth info for NGE.")
 
 	rootCmd.PersistentFlags().StringVar(&symbol, "symbol", defaultSymbol, "Symbol name.")
 }
