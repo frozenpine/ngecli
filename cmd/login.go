@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/gocarina/gocsv"
 
 	"github.com/frozenpine/ngerest"
 
@@ -38,12 +41,12 @@ import (
 
 // APIAuthCache api auth cache
 type APIAuthCache struct {
-	savedAuths   *viper.Viper
-	apiKeyCache  map[string]*models.APIKey
-	apiAuthCache map[string]context.Context
-	authList     []*models.Authentication
-	retriveOnece sync.Once
-	keyIDX       uint32
+	savedAuths    *viper.Viper
+	apiKeyCache   map[string]*models.APIKey
+	loginCtxCache map[string]context.Context
+	authList      []*models.Authentication
+	retriveOnece  sync.Once
+	keyIDX        uint32
 }
 
 func (auth *APIAuthCache) nextIDX() int {
@@ -52,7 +55,13 @@ func (auth *APIAuthCache) nextIDX() int {
 			return
 		}
 
-		err := auth.retriveAuth()
+		var err error
+
+		if authFile == "" {
+			err = auth.retriveAuth()
+		} else {
+			err = auth.readAuthFile(authFile)
+		}
 
 		if err != nil {
 			fmt.Println(err)
@@ -69,18 +78,18 @@ func (auth *APIAuthCache) nextIDX() int {
 
 // SetConfigFile set auth config file path
 func (auth *APIAuthCache) SetConfigFile(path string) {
-	auths.savedAuths.SetConfigFile(path)
+	auth.savedAuths.SetConfigFile(path)
 }
 
 // WriteConfig write login info to auth config file
 func (auth *APIAuthCache) WriteConfig() error {
-	return auths.savedAuths.WriteConfig()
+	return auth.savedAuths.WriteConfig()
 }
 
-// SaveLoginInfo save host's login info in viper config
-func (auth *APIAuthCache) SaveLoginInfo(host, identity string, password *models.Password) {
-	auths.savedAuths.Set(host+".identity", identity)
-	auths.savedAuths.Set(host+".password", password.String())
+// SetLoginInfo save host's login info in viper config
+func (auth *APIAuthCache) SetLoginInfo(host, identity string, password *models.Password) {
+	auth.savedAuths.Set(host+".identity", identity)
+	auth.savedAuths.Set(host+".password", password.String())
 }
 
 func (auth *APIAuthCache) retriveAuth() error {
@@ -98,15 +107,56 @@ func (auth *APIAuthCache) retriveAuth() error {
 		password.ShadowSet(login.GetString("password"))
 	}
 
-	if key := GetUserDefaultKey(rootCtx); key != nil {
-		authInfo := models.Authentication{
-			Identity: identity,
-			Password: password,
-			APIKey:   *key,
-		}
-		auth.authList = append(auth.authList, &authInfo)
-	} else {
+	var loginAuth context.Context
+	if loginAuth = Login(rootCtx, identity, &password); loginAuth == nil {
+		return fmt.Errorf("login failed with identity: %s", identity)
+	}
+
+	var key *models.APIKey
+	if key := GetUserDefaultKey(rootCtx); key == nil {
 		return fmt.Errorf("retrive %s's api key from %s failed", identity, baseHost)
+	}
+
+	authInfo := models.Authentication{
+		Identity: identity,
+		Password: password,
+		APIKey:   *key,
+	}
+
+	auth.authList = append(auth.authList, &authInfo)
+	auth.loginCtxCache[identity] = loginAuth
+	auth.apiKeyCache[identity] = key
+
+	return nil
+}
+
+func (auth *APIAuthCache) readAuthFile(authFile string) error {
+	if _, err := os.Stat(authFile); os.IsNotExist(err) {
+		return err
+	}
+
+	var auths []*models.Authentication
+
+	csvFile, err := os.OpenFile(authFile, os.O_RDONLY, os.ModePerm)
+
+	if err != nil {
+		return err
+	}
+
+	if err = gocsv.UnmarshalFile(csvFile, &auths); err != nil {
+		return err
+	}
+
+	for idx, authInfo := range auths {
+		if !authInfo.Validate() {
+			jsonBytes, _ := json.Marshal(authInfo)
+			fmt.Printf("Record[%d]@line[%d] is invalid: %s",
+				idx+1, idx+2, string(jsonBytes))
+
+			continue
+		}
+
+		auth.authList = append(auth.authList, authInfo)
 	}
 
 	return nil
@@ -122,14 +172,14 @@ func (auth *APIAuthCache) NextAuth(parent context.Context) context.Context {
 
 	var ctx context.Context
 
-	if ctx, exist := auth.apiAuthCache[authInfo.Identity]; !exist {
+	if ctx, exist := auth.loginCtxCache[authInfo.Identity]; !exist {
 		ctx = context.WithValue(
 			parent, ngerest.ContextAPIKey, ngerest.APIKey{
 				Key:    authInfo.Key,
 				Secret: authInfo.Secret,
 			})
 
-		auth.apiAuthCache[authInfo.Identity] = ctx
+		auth.loginCtxCache[authInfo.Identity] = ctx
 	}
 
 	if authInfo.Identity == "" {
@@ -240,7 +290,7 @@ func loginAndSave(host string) {
 		os.Exit(1)
 	}
 
-	auths.SaveLoginInfo(host, identity, &password)
+	auths.SetLoginInfo(host, identity, &password)
 }
 
 // loginCmd represents the login command
