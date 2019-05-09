@@ -100,6 +100,10 @@ func (p *Password) ShadowSet(value string) (err error) {
 
 // UnmarshalCSV unmarshal password from csv
 func (p *Password) UnmarshalCSV(value string) error {
+	if value == "" {
+		return nil
+	}
+
 	return p.ShadowSet(value)
 }
 
@@ -110,13 +114,19 @@ func (p *Password) MarshalCSV() string {
 
 // UnmarshalJSON unmarshal from json string
 func (p *Password) UnmarshalJSON(data []byte) error {
-	return p.ShadowSet(strings.Trim(string(data), "\""))
+	strValue := strings.Trim(string(data), "\"")
+
+	if strValue == "" {
+		return nil
+	}
+
+	return p.ShadowSet(strValue)
 }
 
 // MarshalJSON marshal to json string
 func (p *Password) MarshalJSON() ([]byte, error) {
 	var buff bytes.Buffer
-	buff.WriteString((*p).String())
+	buff.WriteString("\"" + (*p).String() + "\"")
 
 	return buff.Bytes(), nil
 }
@@ -130,6 +140,10 @@ func (p *Password) Shadow(value string) string {
 
 // Show show unshadowed password
 func (p *Password) Show() string {
+	if p.key == nil {
+		p.defaultKey()
+	}
+
 	cipherBytes, err := base64.StdEncoding.DecodeString(p.shadowed)
 	if err != nil {
 		panic(err.Error())
@@ -143,8 +157,7 @@ func (p *Password) Show() string {
 	return string(decrypted)
 }
 
-// NewPassword get new password struct
-func NewPassword() *Password {
+func (p *Password) defaultKey() {
 	var defaultKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAw5QsrDwSbN5iAd4R2D7ARXo/4x5IGlvcbBx1jSnE8s2y9kn2
 8ee/ujc+VWZ7I5SJDxV8VEa1AD73tpKOYVkz88D7mKzL4E6zGVTMRQnqGifUNr+l
@@ -183,9 +196,14 @@ Z4Njdti1yOD3gUoJ3DmqWRv0oS+L9iXag3p2GwzTG7El+LaoDUUS
 		panic("parse pkcs8 private key failed: " + err.Error())
 	}
 
-	pass := Password{
-		key: key,
-	}
+	p.key = key
+}
+
+// NewPassword get new password struct
+func NewPassword() *Password {
+	pass := Password{}
+
+	pass.defaultKey()
 
 	return &pass
 }
@@ -197,8 +215,32 @@ type Authentication struct {
 	APIKey
 }
 
+// Validate completion of auth info
+func (auth *Authentication) Validate() bool {
+	if auth.Password.IsSet() {
+		if auth.Identity == "" {
+			return false
+		}
+	} else {
+		if !auth.APIKey.Validate() {
+			return false
+		}
+	}
+
+	return true
+}
+
 // APIKey key & secret for api
 type APIKey struct {
 	Key    string `csv:"api_key" json:"api_key"`
 	Secret string `csv:"api_secret" json:"api_secret"`
+}
+
+// Validate completion of api key info
+func (key *APIKey) Validate() bool {
+	if key.Key != "" && key.Secret != "" {
+		return true
+	}
+
+	return false
 }

@@ -1,8 +1,12 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/gocarina/gocsv"
 )
 
 func TestPassword(t *testing.T) {
@@ -24,5 +28,26 @@ func TestPassword(t *testing.T) {
 
 	if pass.Show() != passString {
 		t.Fatal("shadow failed.")
+	}
+}
+
+func TestMarshal(t *testing.T) {
+	csvContent := `
+identity,password,api_key,api_secret
+sonny.frozenpine@gmail.com,,ADa28R5s0dUfdn9W3STr,VQ9K28Rj9B35rmAe88VpCN04l1O3Hp1IpPe43y3U4MaSYzQKtijHj3om1dSCYeemagPX959pVj69Z5ESd9Q4T4rtT97h2j0k6Go
+`
+
+	var auths []*Authentication
+
+	if err := gocsv.Unmarshal(strings.NewReader(csvContent), &auths); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, auth := range auths {
+		if jsonBytes, err := json.Marshal(auth); err != nil {
+			t.Fatal(err)
+		} else {
+			t.Log(string(jsonBytes))
+		}
 	}
 }
