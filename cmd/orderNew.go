@@ -71,24 +71,11 @@ func checkArgs(vars *orderNewArgs) bool {
 	return true
 }
 
-func makeNewOrders(input chan *models.Order) {
-	initClient()
-
-	// for new := range input {
-
-	// }
-}
-
 // orderNewCmd represents the orderGet command
 var orderNewCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Make new order for user.",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Long:  `Make new orders either by args inputed or a order source file.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("orderNew called")
 

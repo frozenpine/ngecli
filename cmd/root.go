@@ -1,4 +1,4 @@
-// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+// Copyright Â© 2019 NAME HERE <EMAIL ADDRESS>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,11 +19,8 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 
 	"github.com/frozenpine/ngecli/models"
-
-	"github.com/frozenpine/ngerest"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -39,16 +36,14 @@ const (
 	defaultSymbol = "XBTUSD"
 )
 
-var cfgFile string
-
 var (
-	client            *ngerest.APIClient
+	cfgFile string
+
+	clientHub = &models.ClientHub{}
+
 	rootCtx, stopFunc = context.WithCancel(context.Background())
 
-	identity string
-	password models.Password
-	authFile string
-	symbol   string
+	symbol string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -81,14 +76,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ngecli.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	viper.SetDefault("scheme", defaultScheme)
 	rootCmd.PersistentFlags().String("scheme", defaultScheme, "Host scheme for NGE.")
@@ -106,12 +94,13 @@ func init() {
 	rootCmd.PersistentFlags().String("uri", defaultBaseURI, "Base URI for NGE.")
 	viper.BindPFlag("base-uri", rootCmd.PersistentFlags().Lookup("uri"))
 
-	rootCmd.PersistentFlags().StringVarP(&identity, "id", "u", "", "Identity used for login.")
-	rootCmd.PersistentFlags().VarP(&password, "pass", "p", "Password used for login.")
+	rootCmd.PersistentFlags().StringVarP(&auths.CmdIdentity, "id", "u", "", "Identity used for login.")
+	rootCmd.PersistentFlags().VarP(&auths.CmdPassword, "pass", "p", "Password used for login.")
 
-	rootCmd.PersistentFlags().StringVar(&authFile, "auth", "", "Auth info for NGE.")
+	rootCmd.PersistentFlags().StringVar(&auths.CmdAuthFile, "auth", "", "Auth info for NGE.")
 
 	rootCmd.PersistentFlags().StringVar(&symbol, "symbol", defaultSymbol, "Symbol name.")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -156,38 +145,4 @@ READ_CONFIG:
 
 		goto READ_CONFIG
 	}
-}
-
-func initClient() {
-	cfg := ngerest.NewConfiguration()
-	client = ngerest.NewAPIClient(cfg)
-
-	basePath := getBasePath()
-
-	client.ChangeBasePath(basePath)
-
-	fmt.Println("Change host to:", basePath)
-}
-
-func getBasePath() string {
-	baseURI := viper.GetString("base-uri")
-
-	return getBaseURL() + baseURI
-}
-
-func getBaseHost() string {
-	port := viper.GetInt("port")
-	host := viper.GetString("host")
-
-	if port != defaultPort {
-		return host + ":" + strconv.Itoa(port)
-	}
-
-	return host
-}
-
-func getBaseURL() string {
-	scheme := viper.GetString("scheme")
-
-	return scheme + "://" + getBaseHost()
 }

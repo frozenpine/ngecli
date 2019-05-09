@@ -2,15 +2,25 @@ package models
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
+
+	"github.com/frozenpine/ngerest"
+	"github.com/frozenpine/pkcs8"
+	"github.com/gocarina/gocsv"
+	"github.com/spf13/viper"
 )
 
 // IdentityMap identity pattern map
@@ -247,4 +257,270 @@ func (key *APIKey) Validate() bool {
 	// }
 
 	return true
+}
+
+// AuthCache api auth cache
+type AuthCache struct {
+	savedAuths *viper.Viper
+
+	apiKeyCache   map[string]*APIKey
+	loginCtxCache map[string]context.Context
+	authList      []*Authentication
+
+	clientHub     *ClientHub
+	currentClient *ngerest.APIClient
+	rootCtx       context.Context
+	CmdAuthFile   string
+	CmdIdentity   string
+	CmdPassword   Password
+
+	retriveOnece sync.Once
+	keyIDX       uint32
+}
+
+func (auth *AuthCache) nextIDX() int {
+	auth.retriveOnece.Do(func() {
+		if len(auth.authList) >= 1 {
+			return
+		}
+
+		var err error
+
+		if auth.CmdAuthFile == "" {
+			err = auth.retriveAuth()
+		} else {
+			err = auth.readAuthFile(auth.CmdAuthFile)
+		}
+
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	})
+
+	idCount := atomic.AddUint32(&auth.keyIDX, 1)
+
+	idx := int(idCount) % len(auth.authList)
+
+	return idx - 1
+}
+
+// SetConfigFile set auth config file path
+func (auth *AuthCache) SetConfigFile(path string) {
+	auth.savedAuths.SetConfigFile(path)
+}
+
+// WriteConfig write login info to auth config file
+func (auth *AuthCache) WriteConfig() error {
+	return auth.savedAuths.WriteConfig()
+}
+
+// SetLoginInfo save host's login info in viper config
+func (auth *AuthCache) SetLoginInfo(host, identity string, password *Password) {
+	auth.savedAuths.Set(host+".identity", identity)
+	auth.savedAuths.Set(host+".password", password.String())
+}
+
+// ChangeHost change auth client host server
+func (auth *AuthCache) ChangeHost(host string) {
+	if host == "" {
+		host = GetBaseHost()
+	}
+
+	client, err := auth.clientHub.GetClient(host)
+	if err != nil {
+		panic(err)
+	}
+
+	client.ChangeBasePath(host)
+
+	fmt.Println("Change host to:", host)
+}
+
+// Login login with identity & password to get auth Context
+func (auth *AuthCache) Login(
+	identity string, password *Password) context.Context {
+	idMap := NewIdentityMap()
+	loginInfo := make(map[string]string)
+
+	if err := idMap.CheckIdentity(identity, loginInfo); err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	if auth.currentClient == nil {
+		auth.ChangeHost("")
+	}
+
+	pubKey, _, err := auth.currentClient.KeyExchange.GetPublicKey(auth.rootCtx)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	loginInfo["password"] = pubKey.Encrypt(password.Show())
+
+	login, _, err := auth.currentClient.User.UserLogin(auth.rootCtx, loginInfo)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	return login
+}
+
+// GetUserDefaultKey get user's default sys api key
+func (auth *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
+	if _, ok := loginAuth.Value(ngerest.ContextQuantToken).(ngerest.QuantToken); !ok {
+		fmt.Println("invalid login auth")
+		return nil
+	}
+
+	priKey := pkcs8.GeneratePriveKey(2048)
+
+	if auth.currentClient == nil {
+		auth.ChangeHost("")
+	}
+
+	userDefault, _, err := auth.currentClient.User.UserGetDefaultAPIKey(
+		loginAuth, priKey)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	key := APIKey{
+		Key:    userDefault.APIKey,
+		Secret: userDefault.APISecret,
+	}
+
+	return &key
+}
+
+func (auth *AuthCache) retriveAuth() error {
+	baseHost := GetBaseHost()
+
+	if auth.CmdIdentity == "" || auth.CmdPassword.IsSet() {
+		if !auth.savedAuths.IsSet(baseHost) {
+			return ErrAuthMissing
+		}
+
+		login := auth.savedAuths.Sub(baseHost)
+
+		auth.CmdIdentity = login.GetString("identity")
+
+		auth.CmdPassword.ShadowSet(login.GetString("password"))
+	}
+
+	var loginAuth context.Context
+	if loginAuth = auth.Login(
+		auth.CmdIdentity, &auth.CmdPassword); loginAuth == nil {
+		return fmt.Errorf(
+			"login failed with identity: %s", auth.CmdIdentity)
+	}
+
+	var key *APIKey
+	if key := auth.GetUserDefaultKey(loginAuth); key == nil {
+		return fmt.Errorf(
+			"retrive %s's api key from %s failed", auth.CmdIdentity, baseHost)
+	}
+
+	authInfo := Authentication{
+		Identity: auth.CmdIdentity,
+		Password: auth.CmdPassword,
+		APIKey:   *key,
+	}
+
+	auth.authList = append(auth.authList, &authInfo)
+	auth.loginCtxCache[auth.CmdIdentity] = loginAuth
+	auth.apiKeyCache[auth.CmdIdentity] = key
+
+	return nil
+}
+
+func (auth *AuthCache) readAuthFile(authFile string) error {
+	if _, err := os.Stat(authFile); os.IsNotExist(err) {
+		return err
+	}
+
+	var auths []*Authentication
+
+	csvFile, err := os.OpenFile(authFile, os.O_RDONLY, os.ModePerm)
+
+	if err != nil {
+		return err
+	}
+
+	if err = gocsv.UnmarshalFile(csvFile, &auths); err != nil {
+		return err
+	}
+
+	for idx, authInfo := range auths {
+		if !authInfo.Validate() {
+			jsonBytes, _ := json.Marshal(authInfo)
+			fmt.Printf("Record[%d]@line[%d] is invalid: %s",
+				idx+1, idx+2, string(jsonBytes))
+
+			continue
+		}
+
+		auth.authList = append(auth.authList, authInfo)
+	}
+
+	if len(auth.authList) < 1 {
+		return fmt.Errorf("no valid auth info in file: %s", authFile)
+	}
+
+	return nil
+}
+
+// NextAuth get next auth context
+func (auth *AuthCache) NextAuth(parent context.Context) context.Context {
+	if parent == nil {
+		parent = auth.rootCtx
+	}
+
+	authInfo := auth.authList[auth.nextIDX()]
+
+	var ctx context.Context
+
+	if ctx, exist := auth.loginCtxCache[authInfo.Identity]; !exist {
+		ctx = context.WithValue(
+			parent, ngerest.ContextAPIKey, ngerest.APIKey{
+				Key:    authInfo.Key,
+				Secret: authInfo.Secret,
+			})
+
+		auth.loginCtxCache[authInfo.Identity] = ctx
+	}
+
+	if authInfo.Identity == "" {
+		return ctx
+	}
+
+	if _, exist := auth.apiKeyCache[authInfo.Identity]; !exist {
+		auth.apiKeyCache[authInfo.Identity] = &authInfo.APIKey
+	}
+
+	return ctx
+}
+
+// NewAuthCache create new api auth cache
+func NewAuthCache(ctx context.Context, clientHub *ClientHub) *AuthCache {
+	if ctx == nil {
+		panic("root context is nil.")
+	}
+	if clientHub == nil {
+		panic("client hub is nil pointer.")
+	}
+
+	cache := AuthCache{
+		savedAuths:    viper.New(),
+		rootCtx:       ctx,
+		clientHub:     clientHub,
+		loginCtxCache: make(map[string]context.Context),
+		apiKeyCache:   make(map[string]*APIKey),
+	}
+
+	return &cache
 }

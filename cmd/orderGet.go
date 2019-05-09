@@ -17,8 +17,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/frozenpine/ngecli/channels"
-
 	"github.com/antihax/optional"
 	"github.com/frozenpine/ngecli/models"
 	"github.com/frozenpine/ngerest"
@@ -77,27 +75,30 @@ func getOrderOpts(symbol string, args *orderGetArgs) *ngerest.OrderGetOrdersOpts
 var orderGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get user's history orders.",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Long: `Get user's history orders.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("orderGet called")
+
+		client, err := clientHub.GetClient(models.GetBaseHost())
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
 		hisOrders, _, err := client.Order.OrderGetOrders(rootCtx, getOrderOpts(symbol, &orderGetVariables))
 
 		if err != nil {
 			if swErr, ok := err.(ngerest.GenericSwaggerError); ok {
-				channels.ErrChan <- fmt.Errorf("Get order failed: %s\n%s", swErr.Error(), string(swErr.Body()))
+				fmt.Printf("Get order failed: %s\n%s", swErr.Error(), string(swErr.Body()))
 			} else {
-				channels.ErrChan <- fmt.Errorf("Get order failed: %s", err.Error())
+				fmt.Printf("Get order failed: %s", err.Error())
 			}
+
+			return
 		}
 
 		for _, order := range hisOrders {
-			channels.OrderResultChan <- &order
+			orderCache.PutResult(&order)
 		}
 	},
 }

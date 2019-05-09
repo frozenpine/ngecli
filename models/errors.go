@@ -28,4 +28,7 @@ var (
 
 	// ErrAuthMissing no auth info found
 	ErrAuthMissing = errors.New("no auth info found either in cli args or \"auths.yaml\"")
+
+	// ErrHost host string is invalid
+	ErrHost = errors.New("invalid host")
 )

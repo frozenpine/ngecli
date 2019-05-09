@@ -2,7 +2,11 @@ package models
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
+	"time"
+
+	"github.com/frozenpine/ngerest"
 )
 
 // OrderSide order side
@@ -124,4 +128,46 @@ type Order struct {
 	Text                  string    `csv:"text,omitempty" json:"text,omitempty"`
 	TransactTime          JavaTime  `csv:"transactTime,omitempty" json:"transactTime,omitempty"`
 	Timestamp             JavaTime  `csv:"timestamp,omitempty" json:"timestamp,omitempty"`
+}
+
+// OrderCache is a order input & output channel
+type OrderCache struct {
+	orderInput        chan *Order
+	orderResult       chan *ngerest.Order
+	orderList         []*Order
+	inflightCache     map[string]*Order
+	maxInflightOrders int
+	orderRate         float64
+}
+
+func (cache *OrderCache) requireToken(timeout time.Duration) <-chan error {
+	return make(<-chan error)
+}
+
+// Put order into order cache, it's go routing safe
+func (cache *OrderCache) Put(ord *Order, timeout time.Duration) error {
+	if int64(timeout) > 0 {
+		select {
+		case cache.orderInput <- ord:
+			return nil
+		case <-time.After(timeout):
+			return fmt.Errorf("put order timeout: %v", timeout)
+		}
+	} else {
+		cache.orderInput <- ord
+		return nil
+	}
+}
+
+// PutResult puts order result into cache
+func (cache *OrderCache) PutResult(ord *ngerest.Order) {
+	// todo: inflight order handle
+	cache.orderResult <- ord
+}
+
+// NewOrderCache to make new order cache
+func NewOrderCache() *OrderCache {
+	cache := OrderCache{}
+
+	return &cache
 }
