@@ -159,6 +159,10 @@ func (auth *APIAuthCache) readAuthFile(authFile string) error {
 		auth.authList = append(auth.authList, authInfo)
 	}
 
+	if len(auth.authList) < 1 {
+		return fmt.Errorf("no valid auth info in file: %s", authFile)
+	}
+
 	return nil
 }
 

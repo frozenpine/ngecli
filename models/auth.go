@@ -238,9 +238,13 @@ type APIKey struct {
 
 // Validate completion of api key info
 func (key *APIKey) Validate() bool {
-	if key.Key != "" && key.Secret != "" {
-		return true
+	if key.Key == "" || key.Secret == "" {
+		return false
 	}
 
-	return false
+	// if len(key.Key) != 20 || len(key.Secret) != 99 {
+	// 	return false
+	// }
+
+	return true
 }
