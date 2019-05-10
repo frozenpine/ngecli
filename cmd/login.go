@@ -62,13 +62,8 @@ func parseArgHost(host string) bool {
 func CollectLoginInfo() (identity string, password *models.Password) {
 	password = models.NewPassword()
 
-	if debugLevel > 0 {
-		identity = "sonny.frozenpine@gmail.com"
-		password.Set("yuanyang")
-	} else {
-		identity = ReadLine("Identity: ", nil)
-		password.Set(ReadLine("Password: ", nil))
-	}
+	identity = ReadLine("Identity: ", nil)
+	password.Set(ReadLine("Password: ", nil))
 
 	return
 }
