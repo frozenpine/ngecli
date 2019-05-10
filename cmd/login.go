@@ -35,7 +35,12 @@ var (
 )
 
 func parseArgHost(hostString string) bool {
-	hosts := strings.Split(hostString, ":")
+	parts := strings.Split(hostString, "://")
+	if strings.Contains(parts[0], "http") {
+		viper.Set("scheme", parts[0])
+	}
+
+	hosts := strings.Split(parts[len(parts)-1], ":")
 
 	host := hosts[0]
 	if host != viper.GetString("host") {
