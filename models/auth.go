@@ -24,6 +24,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	viperHostnameKeyDelim = "_"
+)
+
 // IdentityMap identity pattern map
 type IdentityMap map[string]*regexp.Regexp
 
@@ -305,12 +309,11 @@ type AuthCache struct {
 	loginCtxCache map[string]context.Context
 	authList      []*Authentication
 
-	clientHub     *ClientHub
-	currentClient *ngerest.APIClient
-	rootCtx       context.Context
-	CmdAuthFile   string
-	DefaultID     string
-	DefaultPass   Password
+	clientHub   *ClientHub
+	rootCtx     context.Context
+	CmdAuthFile string
+	DefaultID   string
+	DefaultPass Password
 
 	retriveOnece sync.Once
 	keyIDX       uint32
@@ -356,24 +359,12 @@ func (auth *AuthCache) WriteConfig() error {
 
 // SetLoginInfo save host's login info in viper config
 func (auth *AuthCache) SetLoginInfo(host, identity string, password *Password) {
-	auth.savedAuths.Set(host+".identity", identity)
-	auth.savedAuths.Set(host+".password", password.String())
-}
-
-// ChangeHost change auth client host server
-func (auth *AuthCache) ChangeHost(host string) {
-	if host == "" {
-		host = GetBaseHost()
-	}
-
-	client, err := auth.clientHub.GetClient(host)
-	if err != nil {
-		panic(err)
-	}
-
-	client.ChangeBasePath(host)
-
-	fmt.Println("Change host to:", host)
+	auth.savedAuths.Set(
+		strings.Join([]string{host, "identity"}, viperHostnameKeyDelim),
+		identity)
+	auth.savedAuths.Set(
+		strings.Join([]string{host, "password"}, viperHostnameKeyDelim),
+		password.String())
 }
 
 // Login login with identity & password to get auth Context
@@ -382,24 +373,28 @@ func (auth *AuthCache) Login(
 	idMap := NewIdentityMap()
 	loginInfo := make(map[string]string)
 
-	if err := idMap.CheckIdentity(identity, loginInfo); err != nil {
+	var err error
+
+	if err = idMap.CheckIdentity(identity, loginInfo); err != nil {
 		fmt.Println(err)
 		return nil
 	}
 
-	if auth.currentClient == nil {
-		auth.ChangeHost("")
+	client, err := auth.clientHub.GetClient(GetBaseHost())
+	if err != nil {
+		panic(err)
 	}
 
-	pubKey, _, err := auth.currentClient.KeyExchange.GetPublicKey(auth.rootCtx)
+	pubKey, _, err := client.KeyExchange.GetPublicKey(auth.rootCtx)
 	if err != nil {
-		fmt.Println(err)
+		LogError(err)
+
 		return nil
 	}
 
 	loginInfo["password"] = pubKey.Encrypt(password.Show())
 
-	login, _, err := auth.currentClient.User.UserLogin(auth.rootCtx, loginInfo)
+	login, _, err := client.User.UserLogin(auth.rootCtx, loginInfo)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -417,11 +412,9 @@ func (auth *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
 
 	priKey := pkcs8.GeneratePriveKey(2048)
 
-	if auth.currentClient == nil {
-		auth.ChangeHost("")
-	}
+	client, err := auth.clientHub.GetClient(GetBaseHost())
 
-	userDefault, _, err := auth.currentClient.User.UserGetDefaultAPIKey(
+	userDefault, _, err := client.User.UserGetDefaultAPIKey(
 		loginAuth, priKey)
 	if err != nil {
 		fmt.Println(err)
@@ -567,6 +560,8 @@ func NewAuthCache(ctx context.Context, clientHub *ClientHub) *AuthCache {
 		loginCtxCache: make(map[string]context.Context),
 		apiKeyCache:   make(map[string]*APIKey),
 	}
+
+	cache.savedAuths.SetKeyDelim(viperHostnameKeyDelim)
 
 	return &cache
 }

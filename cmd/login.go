@@ -34,45 +34,50 @@ var (
 	auths *models.AuthCache
 )
 
-func parseArgHost(hostString string) bool {
-	parts := strings.Split(hostString, "://")
-	if strings.Contains(parts[0], "http") {
-		viper.Set("scheme", parts[0])
+// host string: host:port w/o scheme(http | https)
+func parseArgHost(host string) bool {
+	hostParts := strings.Split(host, ":")
+
+	hostname := hostParts[0]
+	if hostname != viper.GetString("host") {
+		viper.Set("host", hostname)
 	}
 
-	hosts := strings.Split(parts[len(parts)-1], ":")
-
-	host := hosts[0]
-	if host != viper.GetString("host") {
-		viper.Set("host", host)
-	}
-
-	if len(hosts) > 1 {
-		port, err := strconv.Atoi(hosts[1])
+	if len(hostParts) > 1 {
+		hostPort, err := strconv.Atoi(hostParts[1])
 		if err != nil {
-			fmt.Println("Invalid host:", hostString)
+			fmt.Println("Invalid host:", host)
 			return false
 		}
 
-		if port != viper.GetInt("port") {
-			viper.Set("port", port)
+		if hostPort != viper.GetInt("port") {
+			viper.Set("port", hostPort)
 		}
 	}
-
-	auths.ChangeHost("")
 
 	return true
 }
 
+// host string: host:port w/o scheme(http | https)
 func loginAndSave(host string) {
-	identity := ReadLine("Identity: ", nil)
-	password := models.NewPassword()
-	password.Set(ReadLine("Password: ", nil))
+	var identity string
+	var password = models.NewPassword()
 
-	auths.ChangeHost(host)
+	fmt.Println("Try to login into:", models.GetBaseURL())
+
+	if debugLevel > 0 {
+		identity = "sonny.frozenpine@gmail.com"
+		password.Set("yuanyang")
+	} else {
+		identity = ReadLine("Identity: ", nil)
+		password.Set(ReadLine("Password: ", nil))
+	}
+
 	if auth := auths.Login(identity, password); auth == nil {
 		fmt.Println("Login failed.")
 		os.Exit(1)
+	} else {
+		fmt.Println("Login success.")
 	}
 
 	auths.SetLoginInfo(host, identity, password)
@@ -86,11 +91,19 @@ var loginCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			for _, host := range args {
-				if !parseArgHost(host) {
+				parts := strings.Split(host, "://")
+
+				if strings.Contains(parts[0], "http") {
+					viper.Set("scheme", parts[0])
+				}
+
+				hostString := parts[len(parts)-1]
+
+				if !parseArgHost(hostString) {
 					continue
 				}
 
-				loginAndSave(host)
+				loginAndSave(hostString)
 			}
 		} else {
 			loginAndSave("")

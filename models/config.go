@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -61,7 +62,10 @@ func (hub *ClientHub) GetClient(host string) (*ngerest.APIClient, error) {
 
 	cfg := ngerest.NewConfiguration()
 	client := ngerest.NewAPIClient(cfg)
-	client.ChangeBasePath(host)
+
+	hostURL := viper.GetString("scheme") + "://" + host
+	client.ChangeBasePath(hostURL + viper.GetString("base-uri"))
+	fmt.Println("Change host to:", hostURL)
 
 	hub.clientsMap[host] = client
 
