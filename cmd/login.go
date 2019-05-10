@@ -58,12 +58,9 @@ func parseArgHost(host string) bool {
 	return true
 }
 
-// host string: host:port w/o scheme(http | https)
-func loginAndSave(host string) {
-	var identity string
-	var password = models.NewPassword()
-
-	fmt.Println("Try to login into:", models.GetBaseURL())
+// CollectLoginInfo from stdin
+func CollectLoginInfo() (identity string, password *models.Password) {
+	password = models.NewPassword()
 
 	if debugLevel > 0 {
 		identity = "sonny.frozenpine@gmail.com"
@@ -72,6 +69,15 @@ func loginAndSave(host string) {
 		identity = ReadLine("Identity: ", nil)
 		password.Set(ReadLine("Password: ", nil))
 	}
+
+	return
+}
+
+// host string: host:port w/o scheme(http | https)
+func loginAndSave(host string) {
+	identity, password := CollectLoginInfo()
+
+	fmt.Println("Try to login into:", models.GetBaseURL())
 
 	if auth := auths.Login(identity, password); auth == nil {
 		fmt.Println("Login failed.")
