@@ -11,6 +11,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
 	"strings"
@@ -27,7 +28,8 @@ import (
 type IdentityMap map[string]*regexp.Regexp
 
 // CheckIdentity check & modify login map
-func (idMap *IdentityMap) CheckIdentity(id string, login map[string]string) error {
+func (idMap *IdentityMap) CheckIdentity(
+	id string, login map[string]string) error {
 	for name, pattern := range *idMap {
 		if !pattern.MatchString(id) {
 			continue
@@ -44,7 +46,8 @@ func (idMap *IdentityMap) CheckIdentity(id string, login map[string]string) erro
 }
 
 // AddPattern add new pattern to IdentityMap
-func (idMap *IdentityMap) AddPattern(name string, pattern *regexp.Regexp) error {
+func (idMap *IdentityMap) AddPattern(
+	name string, pattern *regexp.Regexp) error {
 	if _, exist := (*idMap)[name]; exist {
 		return fmt.Errorf("named[%s] pattern already exists", name)
 	}
@@ -58,8 +61,8 @@ func (idMap *IdentityMap) AddPattern(name string, pattern *regexp.Regexp) error 
 func NewIdentityMap() IdentityMap {
 	mp := make(IdentityMap)
 
-	mp["email"] = regexp.MustCompile(`[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*`)
-	mp["mobile"] = regexp.MustCompile(`(\+?[0-9]{2,3})?[0-9-]{6,13}`)
+	mp.AddPattern("email", regexp.MustCompile(`[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*`))
+	mp.AddPattern("mobile", regexp.MustCompile(`(\+?[0-9]{2,3})?[0-9-]{6,13}`))
 
 	return mp
 }
@@ -151,7 +154,7 @@ func (p *Password) Shadow(value string) string {
 // Show show unshadowed password
 func (p *Password) Show() string {
 	if p.key == nil {
-		p.defaultKey()
+		p.defaultKey(nil)
 	}
 
 	cipherBytes, err := base64.StdEncoding.DecodeString(p.shadowed)
@@ -167,8 +170,9 @@ func (p *Password) Show() string {
 	return string(decrypted)
 }
 
-func (p *Password) defaultKey() {
-	var defaultKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
+func (p *Password) defaultKey(keyContent []byte) {
+	if keyContent == nil || len(keyContent) < 1 {
+		keyContent = []byte(`-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAw5QsrDwSbN5iAd4R2D7ARXo/4x5IGlvcbBx1jSnE8s2y9kn2
 8ee/ujc+VWZ7I5SJDxV8VEa1AD73tpKOYVkz88D7mKzL4E6zGVTMRQnqGifUNr+l
 KmKo2y13cOCL+hGGV31AJMnAygBKdSaY7ywvVZeiDUuYlb2COBY54EC2BbDwvgyo
@@ -195,8 +199,9 @@ IdeDEQKBgDomdSAKO26u69qfjTfdTtDI25VJ98YDQVIMAGNHTjDlRei7zGZcVkWS
 sDf9BNxVpu0u2tOKf+oigcYnRPlUbZcFk8zUlPbjfz+r/bhS8PoMd9UNFTaO4z+L
 Z4Njdti1yOD3gUoJ3DmqWRv0oS+L9iXag3p2GwzTG7El+LaoDUUS
 -----END RSA PRIVATE KEY-----`)
+	}
 
-	block, rest := pem.Decode(defaultKey)
+	block, rest := pem.Decode(keyContent)
 	if block == nil || len(rest) > 0 {
 		panic("pem decode key string failed.")
 	}
@@ -213,12 +218,45 @@ Z4Njdti1yOD3gUoJ3DmqWRv0oS+L9iXag3p2GwzTG7El+LaoDUUS
 func NewPassword() *Password {
 	pass := Password{}
 
-	pass.defaultKey()
+	pass.defaultKey(nil)
 
 	return &pass
 }
 
-// Authentication auth info
+// NewPasswordByPEM create password with user specified pem key,
+// if pemPath not specified or is invalid,
+// will return Password with default key
+func NewPasswordByPEM(pemPath string) *Password {
+	if pemPath == "" {
+		fmt.Println("pem file path missing, using default key.")
+		return NewPassword()
+	}
+
+	pemFile, err := os.OpenFile(pemPath, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		fmt.Printf("open pem file failed: %s, using default key.", err.Error())
+		return NewPassword()
+	}
+
+	var keyContent []byte
+
+	_, err = pemFile.Read(keyContent)
+	if err != nil {
+		fmt.Printf(
+			"reading pem file failed: %s, using default key.", err.Error())
+		return NewPassword()
+	}
+
+	pass := Password{}
+	pass.defaultKey(keyContent)
+
+	return &pass
+}
+
+// Authentication auth info including:
+// 1. identity
+// 2. Password instance
+// 3. embedded APIKey struct
 type Authentication struct {
 	Identity string   `csv:"identity" json:"identity"`
 	Password Password `csv:"password" json:"password"`
@@ -271,8 +309,8 @@ type AuthCache struct {
 	currentClient *ngerest.APIClient
 	rootCtx       context.Context
 	CmdAuthFile   string
-	CmdIdentity   string
-	CmdPassword   Password
+	DefaultID     string
+	DefaultPass   Password
 
 	retriveOnece sync.Once
 	keyIDX       uint32
@@ -298,11 +336,12 @@ func (auth *AuthCache) nextIDX() int {
 		}
 	})
 
-	idCount := atomic.AddUint32(&auth.keyIDX, 1)
+	// authList length can not longer
+	idCount := atomic.AddUint32(&auth.keyIDX, 1) - 1
 
 	idx := int(idCount) % len(auth.authList)
 
-	return idx - 1
+	return idx
 }
 
 // SetConfigFile set auth config file path
@@ -400,40 +439,40 @@ func (auth *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
 func (auth *AuthCache) retriveAuth() error {
 	baseHost := GetBaseHost()
 
-	if auth.CmdIdentity == "" || auth.CmdPassword.IsSet() {
+	if auth.DefaultID == "" || auth.DefaultPass.IsSet() {
 		if !auth.savedAuths.IsSet(baseHost) {
 			return ErrAuthMissing
 		}
 
 		login := auth.savedAuths.Sub(baseHost)
 
-		auth.CmdIdentity = login.GetString("identity")
+		auth.DefaultID = login.GetString("identity")
 
-		auth.CmdPassword.ShadowSet(login.GetString("password"))
+		auth.DefaultPass.ShadowSet(login.GetString("password"))
 	}
 
 	var loginAuth context.Context
 	if loginAuth = auth.Login(
-		auth.CmdIdentity, &auth.CmdPassword); loginAuth == nil {
+		auth.DefaultID, &auth.DefaultPass); loginAuth == nil {
 		return fmt.Errorf(
-			"login failed with identity: %s", auth.CmdIdentity)
+			"login failed with identity: %s", auth.DefaultID)
 	}
 
 	var key *APIKey
 	if key := auth.GetUserDefaultKey(loginAuth); key == nil {
 		return fmt.Errorf(
-			"retrive %s's api key from %s failed", auth.CmdIdentity, baseHost)
+			"retrive %s's api key from %s failed", auth.DefaultID, baseHost)
 	}
 
 	authInfo := Authentication{
-		Identity: auth.CmdIdentity,
-		Password: auth.CmdPassword,
+		Identity: auth.DefaultID,
+		Password: auth.DefaultPass,
 		APIKey:   *key,
 	}
 
 	auth.authList = append(auth.authList, &authInfo)
-	auth.loginCtxCache[auth.CmdIdentity] = loginAuth
-	auth.apiKeyCache[auth.CmdIdentity] = key
+	auth.loginCtxCache[auth.DefaultID] = loginAuth
+	auth.apiKeyCache[auth.DefaultID] = key
 
 	return nil
 }
@@ -443,16 +482,23 @@ func (auth *AuthCache) readAuthFile(authFile string) error {
 		return err
 	}
 
-	var auths []*Authentication
-
 	csvFile, err := os.OpenFile(authFile, os.O_RDONLY, os.ModePerm)
 
 	if err != nil {
 		return err
 	}
 
+	var auths []*Authentication
+
 	if err = gocsv.UnmarshalFile(csvFile, &auths); err != nil {
 		return err
+	}
+
+	// nextIDX使用 uint32 CAS自增操作以实现go routine 安全的自旋，
+	// 故验证信息总量不能超过max uint32
+	if len(auths) > math.MaxUint32 {
+		fmt.Println("auth info length can't be longer than max uint32.")
+		auths = auths[:int(math.MaxUint32)]
 	}
 
 	for idx, authInfo := range auths {

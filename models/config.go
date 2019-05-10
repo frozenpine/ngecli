@@ -2,6 +2,7 @@ package models
 
 import (
 	"strconv"
+	"sync"
 
 	"github.com/frozenpine/ngerest"
 
@@ -37,16 +38,21 @@ func GetBaseURL() string {
 // ClientHub is a hub of clients from hosts
 type ClientHub struct {
 	clientsMap map[string]*ngerest.APIClient
+	initFlag   sync.Once
+}
+
+func (hub *ClientHub) init() {
+	hub.initFlag.Do(func() {
+		hub.clientsMap = make(map[string]*ngerest.APIClient)
+	})
 }
 
 // GetClient to get client instance by host string
 func (hub *ClientHub) GetClient(host string) (*ngerest.APIClient, error) {
+	hub.init()
+
 	if host == "" {
 		return nil, ErrHost
-	}
-
-	if hub.clientsMap == nil {
-		hub.clientsMap = make(map[string]*ngerest.APIClient)
 	}
 
 	if client, exist := hub.clientsMap[host]; exist {

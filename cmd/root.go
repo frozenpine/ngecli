@@ -94,8 +94,8 @@ func init() {
 	rootCmd.PersistentFlags().String("uri", defaultBaseURI, "Base URI for NGE.")
 	viper.BindPFlag("base-uri", rootCmd.PersistentFlags().Lookup("uri"))
 
-	rootCmd.PersistentFlags().StringVarP(&auths.CmdIdentity, "id", "u", "", "Identity used for login.")
-	rootCmd.PersistentFlags().VarP(&auths.CmdPassword, "pass", "p", "Password used for login.")
+	rootCmd.PersistentFlags().StringVarP(&auths.DefaultID, "id", "u", "", "Identity used for login.")
+	rootCmd.PersistentFlags().VarP(&auths.DefaultPass, "pass", "p", "Password used for login.")
 
 	rootCmd.PersistentFlags().StringVar(&auths.CmdAuthFile, "auth", "", "Auth info for NGE.")
 
