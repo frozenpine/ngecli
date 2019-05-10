@@ -73,8 +73,10 @@ func getOrderOpts(symbol string, args *orderGetArgs) *ngerest.OrderGetOrdersOpts
 	return &options
 }
 
-func printOrderResults(wait *sync.WaitGroup, results chan *models.Order) {
+func printOrderResults(wait *sync.WaitGroup, results <-chan *models.Order) {
 	wait.Add(1)
+
+	var count int
 
 	for ord := range results {
 		jsonBytes, err := json.Marshal(ord)
@@ -82,9 +84,11 @@ func printOrderResults(wait *sync.WaitGroup, results chan *models.Order) {
 			fmt.Println(err)
 		} else {
 			fmt.Println(string(jsonBytes))
+			count++
 		}
 	}
 
+	fmt.Printf("Total %d order results printed.\n", count)
 	wait.Done()
 }
 
@@ -94,7 +98,11 @@ var orderGetCmd = &cobra.Command{
 	Short: "Get user's history orders.",
 	Long:  `Get user's history orders.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("orderGet called")
+		if auths.DefaultID == "" || !auths.DefaultPass.IsSet() {
+			identity, password := CollectLoginInfo()
+
+			auths.DefaultID, auths.DefaultPass = identity, *password
+		}
 
 		client, err := clientHub.GetClient(models.GetBaseHost())
 		if err != nil {
@@ -113,13 +121,13 @@ var orderGetCmd = &cobra.Command{
 
 		waitOutput := sync.WaitGroup{}
 
-		go printOrderResults(&waitOutput, orderCache.Results)
+		go printOrderResults(&waitOutput, orderCache.GetResults())
 
 		for _, order := range hisOrders {
 			orderCache.PutResult(&order)
 		}
 
-		close(orderCache.Results)
+		orderCache.CloseResults()
 
 		waitOutput.Wait()
 	},
