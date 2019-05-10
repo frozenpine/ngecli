@@ -133,8 +133,8 @@ type Order struct {
 
 // OrderCache is a order input & output channel
 type OrderCache struct {
-	Input             chan *Order
-	Results           chan *Order
+	inputs            chan *Order
+	results           chan *Order
 	orderCache        map[string]*Order
 	inflightCache     map[string]*Order
 	maxInflightOrders int
@@ -149,13 +149,13 @@ func (cache *OrderCache) requireToken(timeout time.Duration) <-chan error {
 func (cache *OrderCache) Put(ord *Order, timeout time.Duration) error {
 	if int64(timeout) > 0 {
 		select {
-		case cache.Input <- ord:
+		case cache.inputs <- ord:
 			return nil
 		case <-time.After(timeout):
 			return fmt.Errorf("put order timeout: %v", timeout)
 		}
 	} else {
-		cache.Input <- ord
+		cache.inputs <- ord
 		return nil
 	}
 }
@@ -166,15 +166,21 @@ func (cache *OrderCache) PutResult(ord *ngerest.Order) {
 	converted := ConvertOrder(ord)
 
 	if converted != nil {
-		cache.Results <- converted
+		cache.results <- converted
 	}
 }
+
+// GetResults to get order results channl
+func (cache *OrderCache) GetResults() <-chan *Order { return cache.results }
+
+// CloseResults to close order results channel
+func (cache *OrderCache) CloseResults() { close(cache.results) }
 
 // NewOrderCache to make new order cache
 func NewOrderCache() *OrderCache {
 	cache := OrderCache{
-		Input:         make(chan *Order),
-		Results:       make(chan *Order),
+		inputs:        make(chan *Order),
+		results:       make(chan *Order),
 		orderCache:    make(map[string]*Order),
 		inflightCache: make(map[string]*Order),
 	}
