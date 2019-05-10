@@ -34,6 +34,14 @@
   version = "v1.4.7"
 
 [[projects]]
+  branch = "master"
+  digest = "1:adddf11eb27039a3afcc74c5e3d13da84e189012ec37acfc2c70385f25edbe0f"
+  name = "github.com/gocarina/gocsv"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2fc85fcf0c07e8bb9123b2104e84cfc2a5b53724"
+
+[[projects]]
   digest = "1:318f1c959a8a740366fce4b1e1eb2fd914036b4af58fbd0a003349b305f118ad"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
@@ -226,6 +234,8 @@
   input-imports = [
     "github.com/antihax/optional",
     "github.com/frozenpine/ngerest",
+    "github.com/frozenpine/pkcs8",
+    "github.com/gocarina/gocsv",
     "github.com/mitchellh/go-homedir",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
