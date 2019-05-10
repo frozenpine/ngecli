@@ -76,7 +76,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initConfig, bannerInfo)
 
 	rootCmd.PersistentFlags().StringVar(
 		&cfgFile, "config", "", "config file (default is $HOME/.ngecli.yaml)")
@@ -159,4 +159,8 @@ READ_CONFIG:
 
 		goto READ_CONFIG
 	}
+}
+
+func bannerInfo() {
+	fmt.Println("Default host:", models.GetBaseURL())
 }
