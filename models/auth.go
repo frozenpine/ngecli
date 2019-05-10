@@ -150,6 +150,10 @@ func (p *Password) MarshalJSON() ([]byte, error) {
 
 // Shadow shadow & store a password
 func (p *Password) Shadow(value string) string {
+	if p.key == nil {
+		p.defaultKey(nil)
+	}
+
 	encrypted, _ := rsa.EncryptPKCS1v15(rand.Reader, &p.key.PublicKey, []byte(value))
 	p.shadowed = base64.StdEncoding.EncodeToString(encrypted)
 	return p.shadowed
@@ -305,9 +309,8 @@ func (key *APIKey) Validate() bool {
 type AuthCache struct {
 	savedAuths *viper.Viper
 
-	apiKeyCache   map[string]*APIKey
-	loginCtxCache map[string]context.Context
-	authList      []*Authentication
+	keyCtxCache map[string]context.Context
+	authList    []*Authentication
 
 	clientHub   *ClientHub
 	rootCtx     context.Context
@@ -432,7 +435,7 @@ func (auth *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
 func (auth *AuthCache) retriveAuth() error {
 	baseHost := GetBaseHost()
 
-	if auth.DefaultID == "" || auth.DefaultPass.IsSet() {
+	if auth.DefaultID == "" || !auth.DefaultPass.IsSet() {
 		if !auth.savedAuths.IsSet(baseHost) {
 			return ErrAuthMissing
 		}
@@ -452,7 +455,7 @@ func (auth *AuthCache) retriveAuth() error {
 	}
 
 	var key *APIKey
-	if key := auth.GetUserDefaultKey(loginAuth); key == nil {
+	if key = auth.GetUserDefaultKey(loginAuth); key == nil {
 		return fmt.Errorf(
 			"retrive %s's api key from %s failed", auth.DefaultID, baseHost)
 	}
@@ -464,8 +467,6 @@ func (auth *AuthCache) retriveAuth() error {
 	}
 
 	auth.authList = append(auth.authList, &authInfo)
-	auth.loginCtxCache[auth.DefaultID] = loginAuth
-	auth.apiKeyCache[auth.DefaultID] = key
 
 	return nil
 }
@@ -521,27 +522,20 @@ func (auth *AuthCache) NextAuth(parent context.Context) context.Context {
 
 	authInfo := auth.authList[auth.nextIDX()]
 
-	var ctx context.Context
-
-	if ctx, exist := auth.loginCtxCache[authInfo.Identity]; !exist {
-		ctx = context.WithValue(
+	keyCtx, exist := auth.keyCtxCache[authInfo.Identity]
+	if !exist {
+		keyCtx = context.WithValue(
 			parent, ngerest.ContextAPIKey, ngerest.APIKey{
 				Key:    authInfo.Key,
 				Secret: authInfo.Secret,
 			})
 
-		auth.loginCtxCache[authInfo.Identity] = ctx
+		if authInfo.Identity != "" {
+			auth.keyCtxCache[authInfo.Identity] = keyCtx
+		}
 	}
 
-	if authInfo.Identity == "" {
-		return ctx
-	}
-
-	if _, exist := auth.apiKeyCache[authInfo.Identity]; !exist {
-		auth.apiKeyCache[authInfo.Identity] = &authInfo.APIKey
-	}
-
-	return ctx
+	return keyCtx
 }
 
 // NewAuthCache create new api auth cache
@@ -554,11 +548,10 @@ func NewAuthCache(ctx context.Context, clientHub *ClientHub) *AuthCache {
 	}
 
 	cache := AuthCache{
-		savedAuths:    viper.New(),
-		rootCtx:       ctx,
-		clientHub:     clientHub,
-		loginCtxCache: make(map[string]context.Context),
-		apiKeyCache:   make(map[string]*APIKey),
+		savedAuths:  viper.New(),
+		rootCtx:     ctx,
+		clientHub:   clientHub,
+		keyCtxCache: make(map[string]context.Context),
 	}
 
 	cache.savedAuths.SetKeyDelim(viperHostnameKeyDelim)

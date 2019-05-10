@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/frozenpine/ngerest"
+
 	"github.com/frozenpine/ngecli/models"
 )
 
@@ -74,4 +76,13 @@ func MatchSide(side *models.OrderSide, qty int64) error {
 	}
 
 	return nil
+}
+
+func printError(prefix string, err error) {
+	if swErr, ok := err.(ngerest.GenericSwaggerError); ok {
+		fmt.Printf(
+			prefix+": %s\n%s\n", swErr.Error(), string(swErr.Body()))
+	} else {
+		fmt.Printf(prefix+": %s\n", err.Error())
+	}
 }

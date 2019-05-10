@@ -15,7 +15,9 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/antihax/optional"
 	"github.com/frozenpine/ngecli/models"
@@ -71,11 +73,26 @@ func getOrderOpts(symbol string, args *orderGetArgs) *ngerest.OrderGetOrdersOpts
 	return &options
 }
 
+func printOrderResults(wait *sync.WaitGroup, results chan *models.Order) {
+	wait.Add(1)
+
+	for ord := range results {
+		jsonBytes, err := json.Marshal(ord)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println(string(jsonBytes))
+		}
+	}
+
+	wait.Done()
+}
+
 // orderGetCmd represents the orderGet command
 var orderGetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get user's history orders.",
-	Long: `Get user's history orders.`,
+	Long:  `Get user's history orders.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("orderGet called")
 
@@ -85,21 +102,26 @@ var orderGetCmd = &cobra.Command{
 			return
 		}
 
-		hisOrders, _, err := client.Order.OrderGetOrders(rootCtx, getOrderOpts(symbol, &orderGetVariables))
+		hisOrders, _, err := client.Order.OrderGetOrders(
+			auths.NextAuth(nil), getOrderOpts(symbol, &orderGetVariables))
 
 		if err != nil {
-			if swErr, ok := err.(ngerest.GenericSwaggerError); ok {
-				fmt.Printf("Get order failed: %s\n%s", swErr.Error(), string(swErr.Body()))
-			} else {
-				fmt.Printf("Get order failed: %s", err.Error())
-			}
+			printError("Get order failed", err)
 
 			return
 		}
 
+		waitOutput := sync.WaitGroup{}
+
+		go printOrderResults(&waitOutput, orderCache.Results)
+
 		for _, order := range hisOrders {
 			orderCache.PutResult(&order)
 		}
+
+		close(orderCache.Results)
+
+		waitOutput.Wait()
 	},
 }
 

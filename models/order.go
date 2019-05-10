@@ -2,6 +2,7 @@ package models
 
 import (
 	"bytes"
+	"encoding/gob"
 	"fmt"
 	"strings"
 	"time"
@@ -66,7 +67,7 @@ func (s *OrderSide) UnmarshalJSON(data []byte) error {
 // MarshalJSON marshal to json string
 func (s *OrderSide) MarshalJSON() ([]byte, error) {
 	var buff bytes.Buffer
-	buff.WriteString((*s).String())
+	buff.WriteString("\"" + (*s).String() + "\"")
 
 	return buff.Bytes(), nil
 }
@@ -132,9 +133,9 @@ type Order struct {
 
 // OrderCache is a order input & output channel
 type OrderCache struct {
-	orderInput        chan *Order
-	orderResult       chan *ngerest.Order
-	orderList         []*Order
+	Input             chan *Order
+	Results           chan *Order
+	orderCache        map[string]*Order
 	inflightCache     map[string]*Order
 	maxInflightOrders int
 	orderRate         float64
@@ -148,13 +149,13 @@ func (cache *OrderCache) requireToken(timeout time.Duration) <-chan error {
 func (cache *OrderCache) Put(ord *Order, timeout time.Duration) error {
 	if int64(timeout) > 0 {
 		select {
-		case cache.orderInput <- ord:
+		case cache.Input <- ord:
 			return nil
 		case <-time.After(timeout):
 			return fmt.Errorf("put order timeout: %v", timeout)
 		}
 	} else {
-		cache.orderInput <- ord
+		cache.Input <- ord
 		return nil
 	}
 }
@@ -162,12 +163,44 @@ func (cache *OrderCache) Put(ord *Order, timeout time.Duration) error {
 // PutResult puts order result into cache
 func (cache *OrderCache) PutResult(ord *ngerest.Order) {
 	// todo: inflight order handle
-	cache.orderResult <- ord
+	converted := ConvertOrder(ord)
+
+	if converted != nil {
+		cache.Results <- converted
+	}
 }
 
 // NewOrderCache to make new order cache
 func NewOrderCache() *OrderCache {
-	cache := OrderCache{}
+	cache := OrderCache{
+		Input:         make(chan *Order),
+		Results:       make(chan *Order),
+		orderCache:    make(map[string]*Order),
+		inflightCache: make(map[string]*Order),
+	}
 
 	return &cache
+}
+
+// ConvertOrder convert ngerest.Order structure to local Order structure
+func ConvertOrder(ori *ngerest.Order) *Order {
+	var ordBuff bytes.Buffer
+
+	enc := gob.NewEncoder(&ordBuff)
+	dec := gob.NewDecoder(&ordBuff)
+
+	err := enc.Encode(*ori)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	var converted Order
+	err = dec.Decode(&converted)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	return &converted
 }
