@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// GetBasePath to get base uri path
-func GetBasePath() string {
+// GetFullPath to get base uri path
+func GetFullPath() string {
 	baseURI := viper.GetString("base-uri")
 
 	return GetBaseURL() + baseURI
@@ -65,7 +65,9 @@ func (hub *ClientHub) GetClient(host string) (*ngerest.APIClient, error) {
 
 	hostURL := viper.GetString("scheme") + "://" + host
 	client.ChangeBasePath(hostURL + viper.GetString("base-uri"))
-	fmt.Println("Change host to:", hostURL)
+	if hostURL != GetBaseURL() {
+		fmt.Println("Change host to:", hostURL)
+	}
 
 	hub.clientsMap[host] = client
 
