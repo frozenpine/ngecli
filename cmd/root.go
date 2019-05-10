@@ -43,6 +43,8 @@ var (
 
 	rootCtx, stopFunc = context.WithCancel(context.Background())
 
+	debugLevel int
+
 	symbol string
 )
 
@@ -76,30 +78,42 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ngecli.yaml)")
+	rootCmd.PersistentFlags().StringVar(
+		&cfgFile, "config", "", "config file (default is $HOME/.ngecli.yaml)")
 
 	viper.SetDefault("scheme", defaultScheme)
-	rootCmd.PersistentFlags().String("scheme", defaultScheme, "Host scheme for NGE.")
+	rootCmd.PersistentFlags().String(
+		"scheme", defaultScheme, "Host scheme for NGE.")
 	viper.BindPFlag("scheme", rootCmd.PersistentFlags().Lookup("scheme"))
 
 	viper.SetDefault("host", defaultHost)
-	rootCmd.PersistentFlags().StringP("host", "H", defaultHost, "Host address for NGE.")
+	rootCmd.PersistentFlags().StringP(
+		"host", "H", defaultHost, "Host address for NGE.")
 	viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("host"))
 
 	viper.SetDefault("port", defaultPort)
-	rootCmd.PersistentFlags().IntP("port", "P", defaultPort, "Host port for NGE.")
+	rootCmd.PersistentFlags().IntP(
+		"port", "P", defaultPort, "Host port for NGE.")
 	viper.BindPFlag("port", rootCmd.PersistentFlags().Lookup("port"))
 
 	viper.SetDefault("base-uri", defaultBaseURI)
-	rootCmd.PersistentFlags().String("uri", defaultBaseURI, "Base URI for NGE.")
+	rootCmd.PersistentFlags().String(
+		"uri", defaultBaseURI, "Base URI for NGE.")
 	viper.BindPFlag("base-uri", rootCmd.PersistentFlags().Lookup("uri"))
 
-	rootCmd.PersistentFlags().StringVarP(&auths.DefaultID, "id", "u", "", "Identity used for login.")
-	rootCmd.PersistentFlags().VarP(&auths.DefaultPass, "pass", "p", "Password used for login.")
+	rootCmd.PersistentFlags().StringVarP(
+		&auths.DefaultID, "id", "u", "", "Identity used for login.")
+	rootCmd.PersistentFlags().VarP(
+		&auths.DefaultPass, "pass", "p", "Password used for login.")
 
-	rootCmd.PersistentFlags().StringVar(&auths.CmdAuthFile, "auth", "", "Auth info for NGE.")
+	rootCmd.PersistentFlags().StringVar(
+		&auths.CmdAuthFile, "auth", "", "Auth info for NGE.")
 
-	rootCmd.PersistentFlags().StringVar(&symbol, "symbol", defaultSymbol, "Symbol name.")
+	rootCmd.PersistentFlags().StringVar(
+		&symbol, "symbol", defaultSymbol, "Symbol name.")
+
+	rootCmd.PersistentFlags().CountVarP(
+		&debugLevel, "verbose", "v", "Show more detailed logs")
 
 }
 
