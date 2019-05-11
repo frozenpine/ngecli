@@ -322,18 +322,18 @@ type AuthCache struct {
 	keyIDX       uint32
 }
 
-func (auth *AuthCache) nextIDX() int {
-	auth.retriveOnece.Do(func() {
-		if len(auth.authList) >= 1 {
+func (cache *AuthCache) nextIDX() int {
+	cache.retriveOnece.Do(func() {
+		if len(cache.authList) >= 1 {
 			return
 		}
 
 		var err error
 
-		if auth.CmdAuthFile == "" {
-			err = auth.retriveAuth()
+		if cache.CmdAuthFile == "" {
+			err = cache.retriveAuth()
 		} else {
-			err = auth.readAuthFile(auth.CmdAuthFile)
+			err = cache.readAuthFile(cache.CmdAuthFile)
 		}
 
 		if err != nil {
@@ -343,35 +343,37 @@ func (auth *AuthCache) nextIDX() int {
 	})
 
 	// authList length can not longer
-	idCount := atomic.AddUint32(&auth.keyIDX, 1) - 1
+	idCount := atomic.AddUint32(&cache.keyIDX, 1) - 1
 
-	idx := int(idCount) % len(auth.authList)
+	idx := int(idCount) % len(cache.authList)
 
 	return idx
 }
 
 // SetConfigFile set auth config file path
-func (auth *AuthCache) SetConfigFile(path string) {
-	auth.savedAuths.SetConfigFile(path)
+func (cache *AuthCache) SetConfigFile(path string) {
+	cache.savedAuths.SetConfigFile(path)
+	cache.savedAuths.ReadInConfig()
 }
 
 // WriteConfig write login info to auth config file
-func (auth *AuthCache) WriteConfig() error {
-	return auth.savedAuths.WriteConfig()
+func (cache *AuthCache) WriteConfig() error {
+	return cache.savedAuths.WriteConfig()
 }
 
 // SetLoginInfo save host's login info in viper config
-func (auth *AuthCache) SetLoginInfo(host, identity string, password *Password) {
-	auth.savedAuths.Set(
+func (cache *AuthCache) SetLoginInfo(
+	host, identity string, password *Password) {
+	cache.savedAuths.Set(
 		strings.Join([]string{host, "identity"}, viperHostnameKeyDelim),
 		identity)
-	auth.savedAuths.Set(
+	cache.savedAuths.Set(
 		strings.Join([]string{host, "password"}, viperHostnameKeyDelim),
 		password.String())
 }
 
 // Login login with identity & password to get auth Context
-func (auth *AuthCache) Login(
+func (cache *AuthCache) Login(
 	identity string, password *Password) context.Context {
 	idMap := NewIdentityMap()
 	loginInfo := make(map[string]string)
@@ -383,12 +385,12 @@ func (auth *AuthCache) Login(
 		return nil
 	}
 
-	client, err := auth.clientHub.GetClient(GetBaseHost())
+	client, err := cache.clientHub.GetClient(GetBaseHost())
 	if err != nil {
 		panic(err)
 	}
 
-	pubKey, _, err := client.KeyExchange.GetPublicKey(auth.rootCtx)
+	pubKey, _, err := client.KeyExchange.GetPublicKey(cache.rootCtx)
 	if err != nil {
 		LogError(err)
 
@@ -397,7 +399,7 @@ func (auth *AuthCache) Login(
 
 	loginInfo["password"] = pubKey.Encrypt(password.Show())
 
-	login, _, err := client.User.UserLogin(auth.rootCtx, loginInfo)
+	login, _, err := client.User.UserLogin(cache.rootCtx, loginInfo)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -407,7 +409,7 @@ func (auth *AuthCache) Login(
 }
 
 // GetUserDefaultKey get user's default sys api key
-func (auth *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
+func (cache *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
 	if _, ok := loginAuth.Value(ngerest.ContextQuantToken).(ngerest.QuantToken); !ok {
 		fmt.Println("invalid login auth")
 		return nil
@@ -415,7 +417,7 @@ func (auth *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
 
 	priKey := pkcs8.GeneratePriveKey(2048)
 
-	client, err := auth.clientHub.GetClient(GetBaseHost())
+	client, err := cache.clientHub.GetClient(GetBaseHost())
 
 	userDefault, _, err := client.User.UserGetDefaultAPIKey(
 		loginAuth, priKey)
@@ -432,46 +434,58 @@ func (auth *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
 	return &key
 }
 
-func (auth *AuthCache) retriveAuth() error {
+// HasSavedAuth to judge if auth info is already saved in auth.yaml
+func (cache *AuthCache) HasSavedAuth(baseHost string) bool {
+	return cache.savedAuths.IsSet(baseHost)
+}
+
+// HasDefaultAuth to judge if auth info is exist from cmd args
+func (cache *AuthCache) HasDefaultAuth() bool {
+	return cache.DefaultID != "" && cache.DefaultPass.IsSet()
+}
+
+func (cache *AuthCache) retriveAuth() error {
 	baseHost := GetBaseHost()
 
-	if auth.DefaultID == "" || !auth.DefaultPass.IsSet() {
-		if !auth.savedAuths.IsSet(baseHost) {
+	if cache.DefaultID == "" || !cache.DefaultPass.IsSet() {
+		if !cache.HasSavedAuth(baseHost) {
 			return ErrAuthMissing
 		}
 
-		login := auth.savedAuths.Sub(baseHost)
+		login := cache.savedAuths.Sub(baseHost)
 
-		auth.DefaultID = login.GetString("identity")
+		cache.DefaultID = login.GetString("identity")
 
-		auth.DefaultPass.ShadowSet(login.GetString("password"))
+		cache.DefaultPass.ShadowSet(login.GetString("password"))
 	}
 
+	fmt.Println("Login with identity:", cache.DefaultID)
+
 	var loginAuth context.Context
-	if loginAuth = auth.Login(
-		auth.DefaultID, &auth.DefaultPass); loginAuth == nil {
+	if loginAuth = cache.Login(
+		cache.DefaultID, &cache.DefaultPass); loginAuth == nil {
 		return fmt.Errorf(
-			"login failed with identity: %s", auth.DefaultID)
+			"login failed with identity: %s", cache.DefaultID)
 	}
 
 	var key *APIKey
-	if key = auth.GetUserDefaultKey(loginAuth); key == nil {
+	if key = cache.GetUserDefaultKey(loginAuth); key == nil {
 		return fmt.Errorf(
-			"retrive %s's api key from %s failed", auth.DefaultID, baseHost)
+			"retrive %s's api key from %s failed", cache.DefaultID, baseHost)
 	}
 
 	authInfo := Authentication{
-		Identity: auth.DefaultID,
-		Password: auth.DefaultPass,
+		Identity: cache.DefaultID,
+		Password: cache.DefaultPass,
 		APIKey:   *key,
 	}
 
-	auth.authList = append(auth.authList, &authInfo)
+	cache.authList = append(cache.authList, &authInfo)
 
 	return nil
 }
 
-func (auth *AuthCache) readAuthFile(authFile string) error {
+func (cache *AuthCache) readAuthFile(authFile string) error {
 	if _, err := os.Stat(authFile); os.IsNotExist(err) {
 		return err
 	}
@@ -504,10 +518,10 @@ func (auth *AuthCache) readAuthFile(authFile string) error {
 			continue
 		}
 
-		auth.authList = append(auth.authList, authInfo)
+		cache.authList = append(cache.authList, authInfo)
 	}
 
-	if len(auth.authList) < 1 {
+	if len(cache.authList) < 1 {
 		return fmt.Errorf("no valid auth info in file: %s", authFile)
 	}
 
@@ -515,14 +529,14 @@ func (auth *AuthCache) readAuthFile(authFile string) error {
 }
 
 // NextAuth get next auth context
-func (auth *AuthCache) NextAuth(parent context.Context) context.Context {
+func (cache *AuthCache) NextAuth(parent context.Context) context.Context {
 	if parent == nil {
-		parent = auth.rootCtx
+		parent = cache.rootCtx
 	}
 
-	authInfo := auth.authList[auth.nextIDX()]
+	authInfo := cache.authList[cache.nextIDX()]
 
-	keyCtx, exist := auth.keyCtxCache[authInfo.Identity]
+	keyCtx, exist := cache.keyCtxCache[authInfo.Identity]
 	if !exist {
 		keyCtx = context.WithValue(
 			parent, ngerest.ContextAPIKey, ngerest.APIKey{
@@ -531,7 +545,7 @@ func (auth *AuthCache) NextAuth(parent context.Context) context.Context {
 			})
 
 		if authInfo.Identity != "" {
-			auth.keyCtxCache[authInfo.Identity] = keyCtx
+			cache.keyCtxCache[authInfo.Identity] = keyCtx
 		}
 	}
 
@@ -555,6 +569,8 @@ func NewAuthCache(ctx context.Context, clientHub *ClientHub) *AuthCache {
 	}
 
 	cache.savedAuths.SetKeyDelim(viperHostnameKeyDelim)
+
+	// cache.savedAuths.
 
 	return &cache
 }
