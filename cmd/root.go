@@ -79,7 +79,8 @@ func init() {
 	cobra.OnInitialize(initConfig, bannerInfo)
 
 	rootCmd.PersistentFlags().StringVar(
-		&cfgFile, "config", "", "config file (default is $HOME/.ngecli.yaml)")
+		&cfgFile, "config", "",
+		"config file (default is $HOME/.ngecli/config.yaml)")
 
 	viper.SetDefault("scheme", defaultScheme)
 	rootCmd.PersistentFlags().String(

@@ -77,7 +77,7 @@ func checkArgs(vars *orderNewArgs) bool {
 var orderNewCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Make new order for user.",
-	Long:  `Make new orders either by args inputed or a order source file.`,
+	Long:  `Make new orders either by args input or a order source file.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("orderNew called")
 
