@@ -98,7 +98,8 @@ var orderGetCmd = &cobra.Command{
 	Short: "Get user's history orders.",
 	Long:  `Get user's history orders.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if auths.DefaultID == "" || !auths.DefaultPass.IsSet() {
+		if !auths.HasSavedAuth(models.GetBaseHost()) &&
+			!auths.HasDefaultAuth() {
 			identity, password := CollectLoginInfo()
 
 			auths.DefaultID, auths.DefaultPass = identity, *password
@@ -115,7 +116,9 @@ var orderGetCmd = &cobra.Command{
 
 		if err != nil {
 			printError("Get order failed", err)
-
+			return
+		} else if len(hisOrders) < 1 {
+			fmt.Println("No history orders found.")
 			return
 		}
 
