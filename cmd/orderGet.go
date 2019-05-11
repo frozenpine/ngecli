@@ -100,14 +100,14 @@ var orderGetCmd = &cobra.Command{
 	Short: "Get user's history orders.",
 	Long:  `Get user's history orders.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if !auths.HasSavedAuth(models.GetBaseHost()) &&
+		if !auths.HasSavedAuth(common.GetBaseHost()) &&
 			!auths.HasDefaultAuth() {
 			identity, password := CollectLoginInfo()
 
 			auths.DefaultID, auths.DefaultPass = identity, *password
 		}
 
-		client, err := clientHub.GetClient(models.GetBaseHost())
+		client, err := clientHub.GetClient(common.GetBaseHost())
 		if err != nil {
 			fmt.Println(err)
 			return

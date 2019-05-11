@@ -20,6 +20,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/frozenpine/ngecli/common"
+
 	"github.com/frozenpine/ngecli/models"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -163,5 +165,5 @@ READ_CONFIG:
 }
 
 func printBanner() {
-	fmt.Println("Default host:", models.GetBaseURL())
+	fmt.Println("Default host:", common.GetBaseURL())
 }

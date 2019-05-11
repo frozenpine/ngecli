@@ -74,7 +74,7 @@ func CollectLoginInfo() (identity string, password *models.Password) {
 func loginAndSave(host string) {
 	identity, password := CollectLoginInfo()
 
-	fmt.Println("Try to login into:", models.GetBaseURL())
+	fmt.Println("Try to login into:", common.GetBaseURL())
 
 	if auth := auths.Login(identity, password); auth == nil {
 		fmt.Println("Login failed.")
