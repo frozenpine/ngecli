@@ -5,10 +5,39 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
+
+	"github.com/spf13/viper"
 
 	"github.com/frozenpine/ngerest"
 )
+
+// GetFullPath to get base uri path
+func GetFullPath() string {
+	baseURI := viper.GetString("base-uri")
+
+	return GetBaseURL() + baseURI
+}
+
+// GetBaseHost to get base host:port string
+func GetBaseHost() string {
+	port := viper.GetInt("port")
+	host := viper.GetString("host")
+
+	if port != 80 {
+		return host + ":" + strconv.Itoa(port)
+	}
+
+	return host
+}
+
+// GetBaseURL to get base full url path
+func GetBaseURL() string {
+	scheme := viper.GetString("scheme")
+
+	return scheme + "://" + GetBaseHost()
+}
 
 // ReadLine read line from io.Reader interface
 func ReadLine(prompt string, src io.Reader) string {

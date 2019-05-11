@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/frozenpine/ngecli/common"
@@ -11,32 +10,6 @@ import (
 
 	"github.com/spf13/viper"
 )
-
-// GetFullPath to get base uri path
-func GetFullPath() string {
-	baseURI := viper.GetString("base-uri")
-
-	return GetBaseURL() + baseURI
-}
-
-// GetBaseHost to get base host:port string
-func GetBaseHost() string {
-	port := viper.GetInt("port")
-	host := viper.GetString("host")
-
-	if port != 80 {
-		return host + ":" + strconv.Itoa(port)
-	}
-
-	return host
-}
-
-// GetBaseURL to get base full url path
-func GetBaseURL() string {
-	scheme := viper.GetString("scheme")
-
-	return scheme + "://" + GetBaseHost()
-}
 
 // ClientHub is a hub of clients from hosts
 type ClientHub struct {
@@ -67,7 +40,7 @@ func (hub *ClientHub) GetClient(host string) (*ngerest.APIClient, error) {
 
 	hostURL := viper.GetString("scheme") + "://" + host
 	client.ChangeBasePath(hostURL + viper.GetString("base-uri"))
-	if hostURL != GetBaseURL() {
+	if hostURL != common.GetBaseURL() {
 		fmt.Println("Change host to:", hostURL)
 	}
 

@@ -76,7 +76,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, bannerInfo)
+	cobra.OnInitialize(initConfig, printBanner)
 
 	rootCmd.PersistentFlags().StringVar(
 		&cfgFile, "config", "",
@@ -162,6 +162,6 @@ READ_CONFIG:
 	}
 }
 
-func bannerInfo() {
+func printBanner() {
 	fmt.Println("Default host:", models.GetBaseURL())
 }

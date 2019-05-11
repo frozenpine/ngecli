@@ -387,7 +387,7 @@ func (cache *AuthCache) Login(
 		return nil
 	}
 
-	client, err := cache.clientHub.GetClient(GetBaseHost())
+	client, err := cache.clientHub.GetClient(common.GetBaseHost())
 	if err != nil {
 		panic(err)
 	}
@@ -419,7 +419,7 @@ func (cache *AuthCache) GetUserDefaultKey(loginAuth context.Context) *APIKey {
 
 	priKey := pkcs8.GeneratePriveKey(2048)
 
-	client, err := cache.clientHub.GetClient(GetBaseHost())
+	client, err := cache.clientHub.GetClient(common.GetBaseHost())
 
 	userDefault, _, err := client.User.UserGetDefaultAPIKey(
 		loginAuth, priKey)
@@ -447,7 +447,7 @@ func (cache *AuthCache) HasDefaultAuth() bool {
 }
 
 func (cache *AuthCache) retriveAuth() error {
-	baseHost := GetBaseHost()
+	baseHost := common.GetBaseHost()
 
 	if cache.DefaultID == "" || !cache.DefaultPass.IsSet() {
 		if !cache.HasSavedAuth(baseHost) {
