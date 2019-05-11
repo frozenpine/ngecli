@@ -281,11 +281,13 @@ func (cache *OrderCache) findClientIDByOrder(ord *Order) string {
 // PutOrder order into order cache, it's go routing safe
 func (cache *OrderCache) PutOrder(
 	id string, ord *Order, timeout time.Duration) error {
+	// this timeout channel shared by both inflight check & requie token
 	var timeoutCh <-chan time.Time
 
 	if int(timeout) > 0 {
 		timeoutCh = time.After(timeout)
 	} else {
+		// this channel will not be timeout
 		timeoutCh = make(<-chan time.Time)
 	}
 
