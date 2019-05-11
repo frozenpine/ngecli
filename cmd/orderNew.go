@@ -65,7 +65,7 @@ func checkArgs(vars *orderNewArgs) bool {
 		return false
 	}
 
-	if err := (&vars.side).MatchSide(vars.volume); err != nil {
+	if err := vars.side.MatchSide(vars.volume); err != nil {
 		fmt.Println(err)
 		return false
 	}
@@ -79,8 +79,6 @@ var orderNewCmd = &cobra.Command{
 	Short: "Make new order for user.",
 	Long:  `Make new orders either by args input or a order source file.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("orderNew called")
-
 		if !checkArgs(&orderNewVariables) {
 			fmt.Println("variables check failed.")
 			os.Exit(1)
