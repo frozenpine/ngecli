@@ -31,4 +31,10 @@ var (
 
 	// ErrHost host string is invalid
 	ErrHost = errors.New("invalid host")
+
+	// ErrInflightCheck inflight order count overflow
+	ErrInflightCheck = errors.New("inflight order exceeded")
+
+	// ErrTokenInsufficient timeout when getting token
+	ErrTokenInsufficient = errors.New("failed to get token in timeout duration")
 )

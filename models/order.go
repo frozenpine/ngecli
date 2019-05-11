@@ -3,6 +3,7 @@ package models
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -153,42 +154,187 @@ type Order struct {
 	Timestamp             JavaTime  `csv:"timestamp,omitempty" json:"timestamp,omitempty"`
 }
 
+// IsClosed check if order is closed
+func (ord *Order) IsClosed() bool {
+	switch ord.OrdStatus {
+	case "Filled":
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	defaultInflightOrders int     = 5
+	maxOrderRatePerUser   float64 = 1
+	maxOrderRateTotal     float64 = 200
+)
+
+type clientCache struct {
+	inQueue  map[string]*Order
+	finished map[string]*Order
+}
+
+func (cc *clientCache) Queue(ord *Order) {
+	cc.inQueue[ord.OrderID] = ord
+}
+
+func (cc *clientCache) Finish(ord *Order) {
+	delete(cc.inQueue, ord.OrderID)
+
+	cc.finished[ord.OrderID] = ord
+}
+
+func newClientCache() *clientCache {
+	cache := clientCache{
+		inQueue:  make(map[string]*Order),
+		finished: make(map[string]*Order),
+	}
+
+	return &cache
+}
+
 // OrderCache is a order input & output channel
 type OrderCache struct {
-	inputs            chan *Order
-	results           chan *Order
-	orderCache        map[string]*Order
-	inflightCache     map[string]*Order
-	maxInflightOrders int
-	orderRate         float64
+	inputs  chan *Order
+	results chan *Order
+	// orderCache OrderID as key
+	orderCache     map[string]*Order
+	inflightCache  map[string]*Order
+	orderClientMap map[string]string
+	// clientOrderCache client identity as key,
+	clientOrderCache    map[string]*clientCache
+	clientInflightQueue map[string]chan interface{}
+	maxInflightOrders   int
+	orderRate           float64
+	tokenBucket         chan bool
 }
 
-func (cache *OrderCache) requireToken(timeout time.Duration) <-chan error {
-	return make(<-chan error)
-}
+func (cache *OrderCache) requireToken(timeChan <-chan time.Time) <-chan error {
+	errChan := make(chan error, 1)
 
-// Put order into order cache, it's go routing safe
-func (cache *OrderCache) Put(ord *Order, timeout time.Duration) error {
-	if int64(timeout) > 0 {
+	go func() {
+		defer func() {
+			close(errChan)
+		}()
+
 		select {
-		case cache.inputs <- ord:
-			return nil
-		case <-time.After(timeout):
-			return fmt.Errorf("put order timeout: %v", timeout)
+		case <-cache.tokenBucket:
+			return
+		case <-timeChan:
+			errChan <- common.ErrTokenInsufficient
 		}
-	} else {
-		cache.inputs <- ord
-		return nil
+	}()
+
+	return errChan
+}
+
+func (cache *OrderCache) checkInflight(
+	id string, timeChan <-chan time.Time) <-chan error {
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer func() {
+			close(errChan)
+		}()
+
+		queue, exist := cache.clientInflightQueue[id]
+		if !exist {
+			queue = make(chan interface{}, cache.maxInflightOrders)
+			cache.clientInflightQueue[id] = queue
+		}
+
+		select {
+		case queue <- nil:
+			return
+		case <-timeChan:
+			errChan <- common.ErrInflightCheck
+		}
+	}()
+
+	return errChan
+}
+
+func (cache *OrderCache) putOrder(id string, ord *Order) error {
+	cache.inputs <- ord
+
+	cache.inflightCache[ord.OrderID] = ord
+	cache.orderCache[ord.OrderID] = ord
+	cache.orderClientMap[ord.OrderID] = id
+
+	clientCache, exist := cache.clientOrderCache[id]
+	if !exist {
+		clientCache = newClientCache()
+
+		cache.clientOrderCache[id] = clientCache
 	}
+
+	clientCache.Queue(ord)
+
+	return nil
+}
+
+func (cache *OrderCache) findClientIDByOrder(ord *Order) string {
+	return cache.orderClientMap[ord.OrderID]
+}
+
+// PutOrder order into order cache, it's go routing safe
+func (cache *OrderCache) PutOrder(
+	id string, ord *Order, timeout time.Duration) error {
+	var timeoutCh <-chan time.Time
+
+	if int(timeout) > 0 {
+		timeoutCh = time.After(timeout)
+	} else {
+		timeoutCh = make(<-chan time.Time)
+	}
+
+	if err := <-cache.checkInflight(id, timeoutCh); err != nil {
+		return err
+	}
+
+	if err := <-cache.requireToken(timeoutCh); err != nil {
+		return err
+	}
+
+	return cache.putOrder(id, ord)
 }
 
 // PutResult puts order result into cache
 func (cache *OrderCache) PutResult(ord *ngerest.Order) {
-	// todo: inflight order handle
 	converted := ConvertOrder(ord)
 
-	if converted != nil {
-		cache.results <- converted
+	if converted == nil {
+		jsonBytes, _ := json.Marshal(ord)
+		fmt.Println("convert order failed, origin:", string(jsonBytes))
+		return
+	}
+
+	cache.results <- converted
+
+	clientID := cache.findClientIDByOrder(converted)
+
+	if clientID == "" {
+		fmt.Println("failed to find client id by order:", ord.OrderID)
+		return
+	}
+
+	if converted.IsClosed() {
+		if clientCache := cache.clientOrderCache[clientID]; clientCache != nil {
+			clientCache.Finish(converted)
+		} else {
+			fmt.Println("client cache missingfor client:", clientID)
+		}
+	}
+
+	if clientQueue := cache.clientInflightQueue[clientID]; clientQueue != nil {
+		select {
+		case <-clientQueue:
+		default:
+			fmt.Println("reduce inflight queue failed for client:", clientID)
+		}
+	} else {
+		fmt.Println("inflight queue missing for client:", clientID)
 	}
 }
 
@@ -201,10 +347,12 @@ func (cache *OrderCache) CloseResults() { close(cache.results) }
 // NewOrderCache to make new order cache
 func NewOrderCache() *OrderCache {
 	cache := OrderCache{
-		inputs:        make(chan *Order),
-		results:       make(chan *Order),
-		orderCache:    make(map[string]*Order),
-		inflightCache: make(map[string]*Order),
+		inputs:              make(chan *Order),
+		results:             make(chan *Order),
+		orderCache:          make(map[string]*Order),
+		inflightCache:       make(map[string]*Order),
+		clientInflightQueue: make(map[string]chan interface{}),
+		clientOrderCache:    make(map[string]*clientCache),
 	}
 
 	return &cache
