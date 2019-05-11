@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/frozenpine/ngecli/common"
+
 	"github.com/frozenpine/ngecli/models"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -62,8 +64,8 @@ func parseArgHost(host string) bool {
 func CollectLoginInfo() (identity string, password *models.Password) {
 	password = models.NewPassword()
 
-	identity = ReadLine("Identity: ", nil)
-	password.Set(ReadLine("Password: ", nil))
+	identity = common.ReadLine("Identity: ", nil)
+	password.Set(common.ReadLine("Password: ", nil))
 
 	return
 }

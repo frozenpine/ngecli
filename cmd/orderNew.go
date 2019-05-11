@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/frozenpine/ngecli/common"
+
 	"github.com/frozenpine/ngecli/models"
 
 	"github.com/spf13/cobra"
@@ -48,22 +50,22 @@ type orderNewArgs struct {
 var orderNewVariables orderNewArgs
 
 func checkArgs(vars *orderNewArgs) bool {
-	if err := CheckSymbol(symbol); err != nil {
+	if err := common.CheckSymbol(symbol); err != nil {
 		fmt.Println(err)
 		return false
 	}
 
-	if err := CheckPrice(vars.price); err != nil {
+	if err := common.CheckPrice(vars.price); err != nil {
 		fmt.Println(err)
 		return false
 	}
 
-	if err := CheckQuantity(vars.volume); err != nil {
+	if err := common.CheckQuantity(vars.volume); err != nil {
 		fmt.Println(err)
 		return false
 	}
 
-	if err := MatchSide(&vars.side, vars.volume); err != nil {
+	if err := (&vars.side).MatchSide(vars.volume); err != nil {
 		fmt.Println(err)
 		return false
 	}

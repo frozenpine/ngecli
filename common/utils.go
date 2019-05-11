@@ -1,4 +1,4 @@
-package cmd
+package common
 
 import (
 	"bufio"
@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/frozenpine/ngerest"
-
-	"github.com/frozenpine/ngecli/models"
 )
 
 // ReadLine read line from io.Reader interface
@@ -34,7 +32,7 @@ func ReadLine(prompt string, src io.Reader) string {
 // CheckSymbol validate order symbol
 func CheckSymbol(symbol string) error {
 	if symbol == "" {
-		return models.ErrSymbol
+		return ErrSymbol
 	}
 
 	return nil
@@ -43,7 +41,7 @@ func CheckSymbol(symbol string) error {
 // CheckPrice validate order price
 func CheckPrice(price float64) error {
 	if price <= 0 {
-		return models.ErrPrice
+		return ErrPrice
 	}
 
 	return nil
@@ -52,33 +50,14 @@ func CheckPrice(price float64) error {
 // CheckQuantity validate order quantity
 func CheckQuantity(qty int64) error {
 	if qty == 0 {
-		return models.ErrQuantity
+		return ErrQuantity
 	}
 
 	return nil
 }
 
-// MatchSide match side with quantity
-func MatchSide(side *models.OrderSide, qty int64) error {
-	switch *side {
-	case models.Buy:
-		if qty < 0 {
-			return models.ErrMissMatchQtySide
-		}
-	case "":
-		if qty > 0 {
-			*side = models.Buy
-		} else {
-			*side = models.Sell
-		}
-	default:
-		return models.ErrSide
-	}
-
-	return nil
-}
-
-func printError(prefix string, err error) {
+// PrintError to auto parse err and print in console
+func PrintError(prefix string, err error) {
 	if swErr, ok := err.(ngerest.GenericSwaggerError); ok {
 		fmt.Printf(
 			prefix+": %s\n%s\n", swErr.Error(), string(swErr.Body()))

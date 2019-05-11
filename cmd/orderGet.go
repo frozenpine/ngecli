@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/frozenpine/ngecli/common"
+
 	"github.com/antihax/optional"
 	"github.com/frozenpine/ngecli/models"
 	"github.com/frozenpine/ngerest"
@@ -115,7 +117,7 @@ var orderGetCmd = &cobra.Command{
 			auths.NextAuth(nil), getOrderOpts(symbol, &orderGetVariables))
 
 		if err != nil {
-			printError("Get order failed", err)
+			common.PrintError("Get order failed", err)
 			return
 		} else if len(hisOrders) < 1 {
 			fmt.Println("No history orders found.")

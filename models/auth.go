@@ -18,6 +18,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/frozenpine/ngecli/common"
+
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/pkcs8"
 	"github.com/gocarina/gocsv"
@@ -392,7 +394,7 @@ func (cache *AuthCache) Login(
 
 	pubKey, _, err := client.KeyExchange.GetPublicKey(cache.rootCtx)
 	if err != nil {
-		LogError(err)
+		common.PrintError("Get public key:", err)
 
 		return nil
 	}
@@ -449,7 +451,7 @@ func (cache *AuthCache) retriveAuth() error {
 
 	if cache.DefaultID == "" || !cache.DefaultPass.IsSet() {
 		if !cache.HasSavedAuth(baseHost) {
-			return ErrAuthMissing
+			return common.ErrAuthMissing
 		}
 
 		login := cache.savedAuths.Sub(baseHost)

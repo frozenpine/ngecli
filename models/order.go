@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frozenpine/ngecli/common"
+
 	"github.com/frozenpine/ngerest"
 )
 
@@ -33,7 +35,7 @@ func (s *OrderSide) Value() int64 {
 	case Sell:
 		return -1
 	default:
-		panic(ErrSide)
+		panic(common.ErrSide)
 	}
 }
 
@@ -45,8 +47,28 @@ func (s *OrderSide) Opposite() OrderSide {
 	case Sell:
 		return Buy
 	default:
-		panic(ErrSide)
+		panic(common.ErrSide)
 	}
+}
+
+// MatchSide match side with quantity
+func (s *OrderSide) MatchSide(qty int64) error {
+	switch *s {
+	case Buy:
+		if qty < 0 {
+			return common.ErrMissMatchQtySide
+		}
+	case "":
+		if qty > 0 {
+			*s = Buy
+		} else {
+			*s = Sell
+		}
+	default:
+		return common.ErrSide
+	}
+
+	return nil
 }
 
 // UnmarshalCSV unmarshal csv column to OrderSide
@@ -85,7 +107,7 @@ func (s *OrderSide) Set(value string) error {
 		*s = Buy
 		return nil
 	default:
-		return ErrSide
+		return common.ErrSide
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/frozenpine/ngecli/common"
+
 	"github.com/frozenpine/ngerest"
 
 	"github.com/spf13/viper"
@@ -53,7 +55,7 @@ func (hub *ClientHub) GetClient(host string) (*ngerest.APIClient, error) {
 	hub.init()
 
 	if host == "" {
-		return nil, ErrHost
+		return nil, common.ErrHost
 	}
 
 	if client, exist := hub.clientsMap[host]; exist {
