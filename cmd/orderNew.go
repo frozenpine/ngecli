@@ -54,7 +54,7 @@ var orderNewVariables orderNewArgs
 
 func checkArgs(vars *orderNewArgs) bool {
 	if err := common.CheckSymbol(symbol); err != nil {
-		fmt.Println(err)
+		
 		return false
 	}
 

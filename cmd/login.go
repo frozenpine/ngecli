@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/frozenpine/ngecli/common"
 
 	"github.com/frozenpine/ngecli/models"
@@ -48,7 +50,9 @@ func parseArgHost(host string) bool {
 	if len(hostParts) > 1 {
 		hostPort, err := strconv.Atoi(hostParts[1])
 		if err != nil {
-			fmt.Println("Invalid host:", host)
+			logger.Warn("Invalid host:",
+				zap.String("url", host),
+			)
 			return false
 		}
 
@@ -77,10 +81,9 @@ func loginAndSave(host string) {
 	fmt.Println("Try to login into:", common.GetBaseURL())
 
 	if auth := auths.Login(identity, password); auth == nil {
-		fmt.Println("Login failed.")
-		os.Exit(1)
+		logger.Fatal("Login failed.")
 	} else {
-		fmt.Println("Login success.")
+		logger.Info("Login succeed.")
 	}
 
 	auths.SetLoginInfo(host, identity, password)
@@ -114,8 +117,7 @@ var loginCmd = &cobra.Command{
 
 		err := auths.WriteConfig()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			logger.Fatal(err.Error())
 		}
 	},
 }
@@ -130,8 +132,7 @@ func initAuthConfig() {
 	// Find home directory.
 	home, err := homedir.Dir()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		logger.Fatal(err.Error())
 	}
 
 	if auths == nil {

@@ -20,13 +20,16 @@ import (
 	"os"
 	"path"
 
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/frozenpine/ngecli/common"
 
 	"github.com/frozenpine/ngecli/models"
 
+	"github.com/frozenpine/viper"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
-	"github.com/frozenpine/viper"
 )
 
 const (
@@ -39,6 +42,8 @@ const (
 )
 
 var (
+	logger *zap.Logger
+
 	cfgFile string
 
 	clientHub = &models.ClientHub{}
@@ -78,7 +83,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, printBanner)
+	cobra.OnInitialize(initConfig, initLogger, printBanner)
 
 	rootCmd.PersistentFlags().StringVar(
 		&cfgFile, "config", "",
@@ -115,9 +120,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(
 		&symbol, "symbol", defaultSymbol, "Symbol name.")
 
+	viper.SetDefault("verbose", 0)
 	rootCmd.PersistentFlags().CountVarP(
 		&debugLevel, "verbose", "v", "Show more detailed logs")
-
+	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -125,8 +131,7 @@ func initConfig() {
 	// Find home directory.
 	home, err := homedir.Dir()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		logger.Fatal(err.Error())
 	}
 
 	if cfgFile != "" {
@@ -161,6 +166,51 @@ READ_CONFIG:
 		}
 
 		goto READ_CONFIG
+	}
+}
+
+func initLogger() {
+	if logger != nil {
+		return
+	}
+
+	encoderConfig := zapcore.EncoderConfig{
+		MessageKey:     "msg",
+		LevelKey:       "lvl",
+		TimeKey:        "ts",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		StacktraceKey:  "stack",
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+	}
+
+	atomicLvl := zap.NewAtomicLevel()
+	switch debugLevel {
+	case 0:
+		atomicLvl.SetLevel(zap.WarnLevel)
+	case 1:
+		atomicLvl.SetLevel(zap.InfoLevel)
+	case 2:
+		atomicLvl.SetLevel(zap.DebugLevel)
+	default:
+		atomicLvl.SetLevel(zap.DebugLevel)
+	}
+
+	config := zap.Config{
+		Level:            atomicLvl,
+		Development:      debugLevel >= 2,
+		Encoding:         "json",
+		EncoderConfig:    encoderConfig,
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+
+	var err error
+
+	if logger, err = config.Build(); err != nil {
+		panic("logger init failed.")
 	}
 }
 

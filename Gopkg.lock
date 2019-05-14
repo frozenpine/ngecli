@@ -109,6 +109,14 @@
   version = "v1.1.2"
 
 [[projects]]
+  digest = "1:c805e517269b0ba4c21ded5836019ed7d16953d4026cb7d00041d039c7906be9"
+  name = "github.com/natefinch/lumberjack"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a96e63847dc3c67d17befa69c303767e2f84e54f"
+  version = "v2.1"
+
+[[projects]]
   digest = "1:e0f50a07c0def90588d69f77178712c6fdc67eb6576365f551cce98b44b501bf"
   name = "github.com/pelletier/go-toml"
   packages = ["."]
@@ -261,6 +269,7 @@
     "github.com/frozenpine/viper",
     "github.com/gocarina/gocsv",
     "github.com/mitchellh/go-homedir",
+    "github.com/natefinch/lumberjack",
     "github.com/spf13/cobra",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",

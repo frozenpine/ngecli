@@ -15,25 +15,9 @@
 package main
 
 import (
-	"go.uber.org/zap"
 	"github.com/frozenpine/ngecli/cmd"
-	"go.uber.org/zap/zapcore"
 )
 
 func main() {
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:     "msg",
-		LevelKey:       "lvl",
-		TimeKey:        "ts",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		StacktraceKey:  "stack",
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-	}
-
-	atom := zap.NewAtomicLevelAt(zap.DebugLevel)
-
 	cmd.Execute()
 }

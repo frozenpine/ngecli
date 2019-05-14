@@ -16,8 +16,9 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
+
+	"go.uber.org/zap"
 
 	"github.com/frozenpine/ngecli/common"
 
@@ -83,14 +84,16 @@ func printOrderResults(wait *sync.WaitGroup, results <-chan *models.Order) {
 	for ord := range results {
 		jsonBytes, err := json.Marshal(ord)
 		if err != nil {
-			fmt.Println(err)
+			logger.Warn(err.Error())
 		} else {
-			fmt.Println(string(jsonBytes))
+			logger.Info("Order result",
+				zap.String("result", string(jsonBytes)),
+			)
 			count++
 		}
 	}
 
-	fmt.Printf("Total %d order results printed.\n", count)
+	logger.Info("All order results printed.", zap.Int("count", count))
 	wait.Done()
 }
 
@@ -109,7 +112,7 @@ var orderGetCmd = &cobra.Command{
 
 		client, err := clientHub.GetClient(common.GetBaseHost())
 		if err != nil {
-			fmt.Println(err)
+			logger.Warn(err.Error())
 			return
 		}
 
@@ -120,7 +123,7 @@ var orderGetCmd = &cobra.Command{
 			common.PrintError("Get order failed", err)
 			return
 		} else if len(hisOrders) < 1 {
-			fmt.Println("No history orders found.")
+			logger.Warn("No history orders found.")
 			return
 		}
 
