@@ -165,9 +165,9 @@ func (ord *Order) IsClosed() bool {
 }
 
 const (
-	defaultInflightOrders int     = 5
-	maxOrderRatePerUser   float64 = 1
-	maxOrderRateTotal     float64 = 200
+	defaultInflightOrders      int     = 5
+	defaultMaxOrderRatePerUser float64 = 1
+	defaultMaxOrderRateTotal   float64 = 200
 )
 
 type clientCache struct {
@@ -302,6 +302,12 @@ func (cache *OrderCache) PutOrder(
 	return cache.putOrder(id, ord)
 }
 
+// GetInputs to get order cache's input channel
+func (cache *OrderCache) GetInputs() <-chan *Order { return cache.inputs }
+
+// CloseInputs to close order cache's input channel
+func (cache *OrderCache) CloseInputs() { close(cache.inputs) }
+
 // PutResult puts order result into cache
 func (cache *OrderCache) PutResult(ord *ngerest.Order) {
 	converted := ConvertOrder(ord)
@@ -355,6 +361,8 @@ func NewOrderCache() *OrderCache {
 		inflightCache:       make(map[string]*Order),
 		clientInflightQueue: make(map[string]chan interface{}),
 		clientOrderCache:    make(map[string]*clientCache),
+		maxInflightOrders:   defaultInflightOrders,
+		orderRate:           defaultMaxOrderRatePerUser,
 	}
 
 	return &cache

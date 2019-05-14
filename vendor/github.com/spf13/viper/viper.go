@@ -1834,10 +1834,3 @@ func (v *Viper) Debug() {
 	fmt.Printf("Config:\n%#v\n", v.config)
 	fmt.Printf("Defaults:\n%#v\n", v.defaults)
 }
-
-func SetKeyDelim(in string) { v.SetKeyDelim(in) }
-func (v *Viper) SetKeyDelim(in string) {
-	if in != "" {
-		v.keyDelim = in
-	}
-}

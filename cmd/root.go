@@ -39,6 +39,8 @@ const (
 )
 
 var (
+	logger = common.Logger
+
 	cfgFile string
 
 	clientHub = &models.ClientHub{}

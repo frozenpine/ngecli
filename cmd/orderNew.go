@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/antihax/optional"
+	"github.com/frozenpine/ngerest"
+
 	"github.com/frozenpine/ngecli/common"
 
 	"github.com/frozenpine/ngecli/models"
@@ -73,6 +76,28 @@ func checkArgs(vars *orderNewArgs) bool {
 	return true
 }
 
+func makeOrderNewOpts(ord *models.Order) *ngerest.OrderNewOpts {
+	opt := ngerest.OrderNewOpts{}
+
+	if ord.Side != "" {
+		opt.Side = optional.NewString(ord.Side.String())
+	}
+
+	if err := common.CheckQuantity(int64(ord.OrderQty)); err != nil {
+		fmt.Println("invalid order quant:", ord.OrderQty)
+		return nil
+	}
+	opt.OrderQty = optional.NewFloat32(ord.OrderQty)
+
+	if err := common.CheckPrice(ord.Price); err != nil {
+		fmt.Println("invalid order price:", ord.Price)
+		return nil
+	}
+	opt.Price = optional.NewFloat64(ord.Price)
+
+	return &opt
+}
+
 // orderNewCmd represents the orderGet command
 var orderNewCmd = &cobra.Command{
 	Use:   "new",
@@ -83,28 +108,41 @@ var orderNewCmd = &cobra.Command{
 			fmt.Println("variables check failed.")
 			os.Exit(1)
 		}
+
 	},
 }
 
 func init() {
 	orderCmd.AddCommand(orderNewCmd)
 
-	orderNewCmd.Flags().Float64VarP(&orderNewVariables.price, "price", "p", 0, "Price for new order.")
-	orderNewCmd.Flags().Int64VarP(&orderNewVariables.volume, "volume", "v", 0, "Volume for new order.")
-	orderNewCmd.Flags().Var(&orderNewVariables.side, "side", "Side for new order.")
+	orderNewCmd.Flags().Float64VarP(
+		&orderNewVariables.price, "price", "p", 0, "Price for new order.")
+	orderNewCmd.Flags().Int64VarP(
+		&orderNewVariables.volume, "volume", "v", 0, "Volume for new order.")
+	orderNewCmd.Flags().Var(
+		&orderNewVariables.side, "side", "Side for new order.")
 
 	orderNewCmd.Flags().Float64Var(
-		&orderNewVariables.basePrice, "base-price", defaultPrice, "Base price for random order.")
+		&orderNewVariables.basePrice, "base-price", defaultPrice,
+		"Base price for random order.")
 	orderNewCmd.Flags().Float64Var(
-		&orderNewVariables.priceTick, "tick", defaultTick, "Price tick for new order.")
+		&orderNewVariables.priceTick, "tick", defaultTick,
+		"Price tick for new order.")
 
 	orderNewCmd.Flags().Int64Var(
-		&orderNewVariables.baseVolume, "base-volume", defaultVolume, "Base volume for random order.")
+		&orderNewVariables.baseVolume, "base-volume", defaultVolume,
+		"Base volume for random order.")
 	orderNewCmd.Flags().Int64Var(
-		&orderNewVariables.maxVolume, "max-volume", defaultMaxVolume, "Max volume for random order.")
+		&orderNewVariables.maxVolume, "max-volume", defaultMaxVolume,
+		"Max volume for random order.")
 
-	orderNewCmd.Flags().BoolVar(&orderNewVariables.random, "random", false, "Random price/volume if not specified.")
 	orderNewCmd.Flags().BoolVar(
-		&orderNewVariables.bothSide, "both-side", false, "Make new orders in both side on same volume@price.")
-	orderNewCmd.Flags().IntVarP(&orderNewVariables.count, "count", "c", defaultCount, "Count of new orders.")
+		&orderNewVariables.random, "random", false,
+		"Random price/volume if not specified.")
+	orderNewCmd.Flags().BoolVar(
+		&orderNewVariables.bothSide, "both-side", false,
+		"Make new orders in both side on same volume@price.")
+	orderNewCmd.Flags().IntVarP(
+		&orderNewVariables.count, "count", "c", defaultCount,
+		"Count of new orders.")
 }
