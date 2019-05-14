@@ -26,7 +26,7 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/frozenpine/viper"
 )
 
 const (
@@ -39,8 +39,6 @@ const (
 )
 
 var (
-	logger = common.Logger
-
 	cfgFile string
 
 	clientHub = &models.ClientHub{}

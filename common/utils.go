@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
+	"github.com/frozenpine/viper"
 
 	"github.com/frozenpine/ngerest"
 )

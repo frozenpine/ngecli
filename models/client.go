@@ -8,7 +8,7 @@ import (
 
 	"github.com/frozenpine/ngerest"
 
-	"github.com/spf13/viper"
+	"github.com/frozenpine/viper"
 )
 
 // ClientHub is a hub of clients from hosts

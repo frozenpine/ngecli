@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/frozenpine/viper"
 
 	"github.com/spf13/cobra"
 )

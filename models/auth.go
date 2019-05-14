@@ -23,7 +23,7 @@ import (
 	"github.com/frozenpine/ngerest"
 	"github.com/frozenpine/pkcs8"
 	"github.com/gocarina/gocsv"
-	"github.com/spf13/viper"
+	"github.com/frozenpine/viper"
 )
 
 const (
@@ -571,8 +571,6 @@ func NewAuthCache(ctx context.Context, clientHub *ClientHub) *AuthCache {
 	}
 
 	cache.savedAuths.SetKeyDelim(viperHostnameKeyDelim)
-
-	// cache.savedAuths.
 
 	return &cache
 }

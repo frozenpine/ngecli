@@ -26,6 +26,14 @@
   revision = "a8374dc8920dc8c96609f90a0b5467ae706427aa"
 
 [[projects]]
+  branch = "master"
+  digest = "1:d95ff04b105f8d1d83bd0613dd4a85887710a511898c23705ad6437d709df499"
+  name = "github.com/frozenpine/viper"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "8c50a5beb3754d64a8e42833874b6f5ffa2ff7f2"
+
+[[projects]]
   digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
@@ -152,22 +160,6 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:1b773526998f3dbde3a51a4a5881680c4d237d3600f570d900f97ac93c7ba0a8"
-  name = "github.com/spf13/viper"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "9e56dacc08fbbf8c9ee2dbc717553c758ce42bc9"
-  version = "v1.3.2"
-
-[[projects]]
-  digest = "1:0a96fe83a376e086d9f6573d655715a5d95b459eac48df1f9fc8392a0edbc0e7"
-  name = "github.com/uber-go/zap"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "72313cde80537dd4dc9b7b80eda6d7ed796c4232"
-  version = "v1.0.0-rc.1"
-
-[[projects]]
   digest = "1:a5158647b553c61877aa9ae74f4015000294e47981e6b8b07525edcbb0747c81"
   name = "go.uber.org/atomic"
   packages = ["."]
@@ -176,9 +168,10 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:80b48bf5e597f3d099f0fdf08f092480842e12189aeab25f84f914990102f7ac"
+  digest = "1:a8393910a5fd67130a7d73c9a696fa6d65ff272142621c6b7a388e523545f242"
   name = "go.uber.org/zap"
   packages = [
+    ".",
     "buffer",
     "internal/bufferpool",
     "internal/exit",
@@ -265,11 +258,12 @@
     "github.com/antihax/optional",
     "github.com/frozenpine/ngerest",
     "github.com/frozenpine/pkcs8",
+    "github.com/frozenpine/viper",
     "github.com/gocarina/gocsv",
     "github.com/mitchellh/go-homedir",
     "github.com/spf13/cobra",
-    "github.com/spf13/viper",
-    "github.com/uber-go/zap",
+    "go.uber.org/zap",
+    "go.uber.org/zap/zapcore",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
