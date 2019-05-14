@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"github.com/frozenpine/ngecli/logger"
 	"fmt"
 	"os"
 	"path/filepath"

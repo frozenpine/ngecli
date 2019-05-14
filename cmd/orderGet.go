@@ -18,6 +18,8 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/frozenpine/ngecli/logger"
+
 	"go.uber.org/zap"
 
 	"github.com/frozenpine/ngecli/common"

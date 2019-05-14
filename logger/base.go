@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"go.uber.org/zap"
+
 	"go.uber.org/zap/zapcore"
 )
 
@@ -38,6 +39,9 @@ func init() {
 	consoleErr := zapcore.Lock(os.Stderr)
 
 	consoleEncoder := zapcore.NewConsoleEncoder(encodeConfig)
+
+	atomicLvl := zap.NewAtomicLevel()
+	atomicLvl.SetLevel(zap.DebugLevel)
 
 	core = zapcore.NewTee(
 		zapcore.NewCore(consoleEncoder, consoleErr, highPriority),

@@ -20,8 +20,7 @@ import (
 	"os"
 	"path"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/frozenpine/ngecli/logger"
 
 	"github.com/frozenpine/ngecli/common"
 
@@ -42,8 +41,6 @@ const (
 )
 
 var (
-	logger *zap.Logger
-
 	cfgFile string
 
 	clientHub = &models.ClientHub{}
@@ -83,7 +80,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, initLogger, printBanner)
+	cobra.OnInitialize(initConfig, printBanner)
 
 	rootCmd.PersistentFlags().StringVar(
 		&cfgFile, "config", "",
@@ -166,51 +163,6 @@ READ_CONFIG:
 		}
 
 		goto READ_CONFIG
-	}
-}
-
-func initLogger() {
-	if logger != nil {
-		return
-	}
-
-	encoderConfig := zapcore.EncoderConfig{
-		MessageKey:     "msg",
-		LevelKey:       "lvl",
-		TimeKey:        "ts",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		StacktraceKey:  "stack",
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-	}
-
-	atomicLvl := zap.NewAtomicLevel()
-	switch debugLevel {
-	case 0:
-		atomicLvl.SetLevel(zap.WarnLevel)
-	case 1:
-		atomicLvl.SetLevel(zap.InfoLevel)
-	case 2:
-		atomicLvl.SetLevel(zap.DebugLevel)
-	default:
-		atomicLvl.SetLevel(zap.DebugLevel)
-	}
-
-	config := zap.Config{
-		Level:            atomicLvl,
-		Development:      debugLevel >= 2,
-		Encoding:         "json",
-		EncoderConfig:    encoderConfig,
-		OutputPaths:      []string{"stdout"},
-		ErrorOutputPaths: []string{"stderr"},
-	}
-
-	var err error
-
-	if logger, err = config.Build(); err != nil {
-		panic("logger init failed.")
 	}
 }
 
