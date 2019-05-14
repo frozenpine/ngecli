@@ -323,7 +323,7 @@ func (cache *OrderCache) PutResult(ord *ngerest.Order) {
 	clientID := cache.findClientIDByOrder(converted)
 
 	if clientID == "" {
-		fmt.Println("failed to find client id by order:", ord.OrderID)
+		// fmt.Println("failed to find client id by order:", ord.OrderID)
 		return
 	}
 
@@ -331,7 +331,7 @@ func (cache *OrderCache) PutResult(ord *ngerest.Order) {
 		if clientCache := cache.clientOrderCache[clientID]; clientCache != nil {
 			clientCache.Finish(converted)
 		} else {
-			fmt.Println("client cache missingfor client:", clientID)
+			fmt.Println("client cache missing for client:", clientID)
 		}
 	}
 

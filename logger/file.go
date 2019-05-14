@@ -23,9 +23,5 @@ func init() {
 		zap.DebugLevel,
 	)
 
-	core = zapcore.NewTee(
-		fileCore,
-	)
-
-	logger = zap.New(core)
+	cores = append(cores, fileCore)
 }

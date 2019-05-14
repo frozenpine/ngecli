@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/frozenpine/ngecli/logger"
@@ -79,8 +80,6 @@ func getOrderOpts(symbol string, args *orderGetArgs) *ngerest.OrderGetOrdersOpts
 }
 
 func printOrderResults(wait *sync.WaitGroup, results <-chan *models.Order) {
-	wait.Add(1)
-
 	var count int
 
 	for ord := range results {
@@ -88,9 +87,7 @@ func printOrderResults(wait *sync.WaitGroup, results <-chan *models.Order) {
 		if err != nil {
 			logger.Warn(err.Error())
 		} else {
-			logger.Info("Order result",
-				zap.String("result", string(jsonBytes)),
-			)
+			fmt.Println(string(jsonBytes))
 			count++
 		}
 	}
@@ -130,6 +127,7 @@ var orderGetCmd = &cobra.Command{
 		}
 
 		waitOutput := sync.WaitGroup{}
+		waitOutput.Add(1)
 
 		go printOrderResults(&waitOutput, orderCache.GetResults())
 
