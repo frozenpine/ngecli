@@ -8,7 +8,7 @@ import (
 
 func init() {
 	fileLogger := lumberjack.Logger{
-		Filename:   "ngecli.log",
+		Filename:   "logs/ngecli.log",
 		MaxSize:    500,
 		MaxBackups: 3,
 		MaxAge:     7,
@@ -26,4 +26,6 @@ func init() {
 	core = zapcore.NewTee(
 		fileCore,
 	)
+
+	logger = zap.New(core)
 }

@@ -56,6 +56,23 @@ func Flush() {
 	// logger.D
 }
 
+// Sugar converts a Logger to a SugaredLogger.
+func Sugar() *zap.SugaredLogger { return logger.Sugar() }
+
+// Named adds a new path segment to the logger's name. Segments are joined by
+// periods.
+func Named(name string) *zap.Logger { return logger.Named(name) }
+
+// WithOptions clones the current Logger, applies the supplied Options, and
+// returns the resulting Logger. It's safe to use concurrently.
+func WithOptions(opts ...zap.Option) *zap.Logger {
+	return logger.WithOptions(opts...)
+}
+
+// With creates a child logger and adds structured context to it. Fields added
+// to the child don't affect the parent, and vice versa.
+func With(fields ...zapcore.Field) *zap.Logger { return logger.With(fields...) }
+
 // Debug log debug level message
 func Debug(msg string, fields ...zapcore.Field) {
 	logger.Debug(msg, fields...)
@@ -74,4 +91,19 @@ func Warn(msg string, fields ...zapcore.Field) {
 // Error log error level message
 func Error(msg string, fields ...zapcore.Field) {
 	logger.Error(msg, fields...)
+}
+
+// DPanic log panic level message & throw a panic in development mode
+func DPanic(msg string, fields ...zapcore.Field) {
+	logger.DPanic(msg, fields...)
+}
+
+// Panic log panic level message & throw a panic
+func Panic(msg string, fields ...zapcore.Field) {
+	logger.Panic(msg, fields...)
+}
+
+// Fatal log fatal level message & exit
+func Fatal(msg string, fields ...zapcore.Field) {
+	logger.Fatal(msg, fields...)
 }
