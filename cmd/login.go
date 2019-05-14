@@ -15,12 +15,12 @@
 package cmd
 
 import (
-	"github.com/frozenpine/ngecli/logger"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/frozenpine/ngecli/logger"
 
 	"go.uber.org/zap"
 
@@ -79,12 +79,12 @@ func CollectLoginInfo() (identity string, password *models.Password) {
 func loginAndSave(host string) {
 	identity, password := CollectLoginInfo()
 
-	fmt.Println("Try to login into:", common.GetBaseURL())
+	logger.Info("Try to login into:", zap.String("url", common.GetBaseURL()))
 
 	if auth := auths.Login(identity, password); auth == nil {
-		logger.Fatal("Login failed.")
+		logger.Fatal("Login failed.", zap.String("id", identity))
 	} else {
-		logger.Info("Login succeed.")
+		logger.Info("Login succeed.", zap.String("id", identity))
 	}
 
 	auths.SetLoginInfo(host, identity, password)

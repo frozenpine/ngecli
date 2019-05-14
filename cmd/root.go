@@ -158,8 +158,7 @@ READ_CONFIG:
 
 		err = viper.WriteConfigAs(path.Join(confDir, "config.yaml"))
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			logger.Fatal(err.Error())
 		}
 
 		goto READ_CONFIG

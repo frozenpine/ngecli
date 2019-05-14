@@ -15,8 +15,9 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"go.uber.org/zap"
+
+	"github.com/frozenpine/ngecli/logger"
 
 	"github.com/antihax/optional"
 	"github.com/frozenpine/ngerest"
@@ -54,22 +55,22 @@ var orderNewVariables orderNewArgs
 
 func checkArgs(vars *orderNewArgs) bool {
 	if err := common.CheckSymbol(symbol); err != nil {
-		
+		logger.Error(err.Error())
 		return false
 	}
 
 	if err := common.CheckPrice(vars.price); err != nil {
-		fmt.Println(err)
+		logger.Error(err.Error())
 		return false
 	}
 
 	if err := common.CheckQuantity(vars.volume); err != nil {
-		fmt.Println(err)
+		logger.Error(err.Error())
 		return false
 	}
 
 	if err := vars.side.MatchSide(vars.volume); err != nil {
-		fmt.Println(err)
+		logger.Error(err.Error())
 		return false
 	}
 
@@ -84,13 +85,16 @@ func makeOrderNewOpts(ord *models.Order) *ngerest.OrderNewOpts {
 	}
 
 	if err := common.CheckQuantity(int64(ord.OrderQty)); err != nil {
-		fmt.Println("invalid order quant:", ord.OrderQty)
+		logger.Error("invalid order quant:",
+			zap.Float32("orderQty", ord.OrderQty))
+
 		return nil
 	}
 	opt.OrderQty = optional.NewFloat32(ord.OrderQty)
 
 	if err := common.CheckPrice(ord.Price); err != nil {
-		fmt.Println("invalid order price:", ord.Price)
+		logger.Error("invalid order price:",
+			zap.Float64("price", ord.Price))
 		return nil
 	}
 	opt.Price = optional.NewFloat64(ord.Price)
@@ -105,8 +109,7 @@ var orderNewCmd = &cobra.Command{
 	Long:  `Make new orders either by args input or a order source file.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if !checkArgs(&orderNewVariables) {
-			fmt.Println("variables check failed.")
-			os.Exit(1)
+			logger.Fatal("variables check failed.")
 		}
 
 	},
