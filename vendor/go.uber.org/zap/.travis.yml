@@ -1,13 +1,11 @@
 language: go
 sudo: false
 go:
-  - 1.7
-  - 1.8rc3
-  - tip
+  - 1.11.x
+  - 1.12.x
 go_import_path: go.uber.org/zap
 env:
   global:
-    - GO15VENDOREXPERIMENT=1
     - TEST_TIMEOUT_SCALE=10
 cache:
   directories:
@@ -19,4 +17,5 @@ script:
   - make test
   - make bench
 after_success:
-  - make coveralls
+  - make cover
+  - bash <(curl -s https://codecov.io/bash)
